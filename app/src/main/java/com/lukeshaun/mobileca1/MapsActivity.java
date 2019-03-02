@@ -22,6 +22,7 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.lukeshaun.mobileca1.utilities.MapUtilities;
 
 import java.util.Locale;
 
@@ -64,28 +65,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Save map instance in Activity
         mMap = googleMap;
 
-        // Add a marker to DkIT and move the camera
-        LatLng dkit = new LatLng(53.984981, -6.393973);
-
-        // Zoom levels:
-        // 1: World
-        // 5: Landmass / continent
-        // 10: City
-        // 15: Streets
-        // 20: Buildings
-        float zoom = 15;
-
-        // Create camera update position
-        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(dkit, zoom);
-
-        // Add marker to map
-        mMap.addMarker(new MarkerOptions().position(dkit).title("Marker in Dundalk Institute of Technology"));
-
-        // Move camera view to CameraUpdate object location
-        mMap.moveCamera(cameraUpdate);
-
-        // Set up map long click listener
-        setMapLongClick(mMap);
+        createMockGeofences();
     }
 
     @Override
@@ -135,5 +115,41 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         .snippet(snippet));
             }
         });
+    }
+
+
+    private void createMockGeofences() {
+        // Add a marker to DkIT and move the camera
+        LatLng dkit = new LatLng(53.984981, -6.393973);
+        LatLng crownPlaza = new LatLng(53.980856, -6.38913);
+        LatLng sportsGround = new LatLng(53.989932, -6.389998);
+        // Zoom levels:
+        // 1: World
+        // 5: Landmass / continent
+        // 10: City
+        // 15: Streets
+        // 20: Buildings
+        float zoom = 15;
+        // Create camera update position
+        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(dkit, zoom);
+        // Add marker to map
+        mMap.addMarker(new MarkerOptions().position(dkit).title("Marker in Dundalk Institute of Technology"));
+        // Move camera view to CameraUpdate object location
+        mMap.moveCamera(cameraUpdate);
+
+        // Draw default geofences on map and set position
+        drawGeofence(MapUtilities.defaultGeofence().center(dkit));
+        drawGeofence(MapUtilities.defaultGeofence().center(crownPlaza));
+        drawGeofence(MapUtilities.defaultGeofence().center(sportsGround));
+
+        // Set up map long click listener
+        setMapLongClick(mMap);
+    }
+
+    /*
+     * Draws a geofence location on the map with the passed in CircleOptions.
+     */
+    private void drawGeofence(CircleOptions geoFenceOptions) {
+        mMap.addCircle(geoFenceOptions);
     }
 }
