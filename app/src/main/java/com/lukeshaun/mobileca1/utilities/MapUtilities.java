@@ -10,6 +10,7 @@ public final class MapUtilities {
     private static CircleOptions newCircleOptions() {
         return new CircleOptions()
                 .radius(100)
+                .clickable(true)
                 .strokeWidth(5.0f);
     }
     public static CircleOptions defaultGeofence() {

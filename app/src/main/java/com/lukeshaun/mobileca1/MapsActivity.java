@@ -12,12 +12,13 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -32,9 +33,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     // Google Maps
     private GoogleMap mMap;
-
-    // Location
-    private LocationRequest mLocationRequest;
 
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
@@ -53,8 +51,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
+     * This is where we can add markers or lines, add listeners or move the camera.
      * If Google Play services is not installed on the device, the user will be prompted to install
      * it inside the SupportMapFragment. This method will only be triggered once the user has
      * installed Google Play services and returned to the app.
@@ -64,7 +61,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Save map instance in Activity
         mMap = googleMap;
 
+        // Creating mock sites
         createMockGeofences();
+
+        // Creating listener to respond to clicking on geofences
+        // Information about a geofence appears
+        geoFenceClick(mMap);
 
         // Enable location tracking
         enableLocationTracking();
@@ -98,23 +100,32 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-    // Set up listener for when a user clicks on the map for a long period.
-    private void setMapLongClick(final GoogleMap map) {
-        map.setOnMapLongClickListener(new GoogleMap.OnMapLongClickListener() {
+    // Respond to user clicking on a geofence.
+    private void geoFenceClick(final GoogleMap map) {
+        // Set up listener on map
+        map.setOnCircleClickListener(new GoogleMap.OnCircleClickListener() {
             @Override
-            public void onMapLongClick(LatLng latLng) {
+            public void onCircleClick(Circle circle) {
+
+                // Get center of circle
+                LatLng coord = circle.getCenter();
+
+                Log.d(TAG, "Geofence clicked at location " + coord.toString());
 
                 // Create text to add to info window.
                 String snippet = String.format(Locale.getDefault(),
                         "Lat: %1$.5f, Long: %2$.5f",
-                        latLng.latitude,
-                        latLng.longitude);
+                        coord.latitude,
+                        coord.longitude);
 
-                // Add marker at position
+                // Create an invisible marker with 0x0, needed to display information window at circle.
                 map.addMarker(new MarkerOptions()
-                        .position(latLng)
+                        .alpha(0)
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.blank_image))
+                        .position(coord)
                         .title(getString(R.string.dropped_pin))
-                        .snippet(snippet));
+                        .snippet(snippet))
+                        .showInfoWindow();
             }
         });
     }
@@ -134,8 +145,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         float zoom = 15;
         // Create camera update position
         CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(dkit, zoom);
-        // Add marker to map
-        mMap.addMarker(new MarkerOptions().position(dkit).title("Marker in Dundalk Institute of Technology"));
         // Move camera view to CameraUpdate object location
         mMap.moveCamera(cameraUpdate);
 
@@ -143,9 +152,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         drawGeofence(MapUtilities.defaultGeofence().center(dkit));
         drawGeofence(MapUtilities.defaultGeofence().center(crownPlaza));
         drawGeofence(MapUtilities.defaultGeofence().center(sportsGround));
-
-        // Set up map long click listener
-        setMapLongClick(mMap);
     }
 
     /*
