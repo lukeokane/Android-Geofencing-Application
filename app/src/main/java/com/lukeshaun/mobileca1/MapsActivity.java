@@ -2,7 +2,6 @@ package com.lukeshaun.mobileca1;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -66,6 +65,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap = googleMap;
 
         createMockGeofences();
+
+        // Enable location tracking
+        enableLocationTracking();
     }
 
     @Override
@@ -151,5 +153,40 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
      */
     private void drawGeofence(CircleOptions geoFenceOptions) {
         mMap.addCircle(geoFenceOptions);
+    }
+
+    private void enableLocationTracking() {
+        // Check if fine location permission has been allowed.
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "Location enabled");
+            // Sets the my-location button to display.
+            mMap.setMyLocationEnabled(true);
+        }
+        // If not then prompt user for permission
+        else {
+            Log.d(TAG, "Location not enabled");
+            ActivityCompat.requestPermissions(this, new String[]
+                            {Manifest.permission.ACCESS_FINE_LOCATION},
+                    REQUEST_LOCATION_PERMISSION);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        // Check if location permissions are granted and if so enable the
+        // location data layer.
+        switch (requestCode) {
+            case REQUEST_LOCATION_PERMISSION:
+                if (grantResults.length > 0
+                        && grantResults[0]
+                        == PackageManager.PERMISSION_GRANTED) {
+                    enableLocationTracking();
+                    break;
+                }
+        }
     }
 }
