@@ -1,6 +1,7 @@
 package com.lukeshaun.mobileca1.utility;
 
 import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 
@@ -42,5 +43,12 @@ public final class MapUtility {
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
                 .build();
 
+    }
+
+    public static LocationRequest createLocationRequest() {
+        return new LocationRequest()
+                .setInterval(10000)
+                .setFastestInterval(5000)
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
     }
 }

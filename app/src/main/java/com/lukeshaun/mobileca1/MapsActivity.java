@@ -2,12 +2,16 @@ package com.lukeshaun.mobileca1;
 
 import android.Manifest;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -16,9 +20,12 @@ import android.view.MenuItem;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
 import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -35,6 +42,7 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
 import com.lukeshaun.mobileca1.utility.MapUtility;
 
+import java.security.InvalidParameterException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -53,7 +61,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Geofencing
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent;
+    private FusedLocationProviderClient mFusedLocationClient;
+    private LocationCallback mLocationCallback;
     private int geoFenceCounter = 0;
+    private static final String GEOFENCE_TRANSITION_EVENT_BROADCAST = "GeofenceTransitionEvent";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,8 +74,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+                mMessageReceiver, new IntentFilter("GeofenceTransitionEvent"));
+
+        // Initialize the FusedLocationClient.
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(
+                this);
         mGeofencingClient = LocationServices.getGeofencingClient(this);
         mapFragment.getMapAsync(this);
+
+        mLocationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                // TODO Handle Result Here
+            }
+        };
     }
 
     @Override
@@ -103,8 +128,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Enable location tracking
         enableLocationTracking();
 
-        // Creating mock sites
-        createMockGeofences();
     }
 
     @Override
@@ -141,7 +164,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         map.setOnCircleClickListener(new GoogleMap.OnCircleClickListener() {
             @Override
             public void onCircleClick(Circle circle) {
-
                 // Get center of circle
                 LatLng coord = circle.getCenter();
 
@@ -211,6 +233,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             // Sends a pending intent with a list of Geofence transitions to the GeofenceTransitionService when any occur.
+
+            Log.d(TAG, "About to add geofences");
             mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent())
                     // If error
                     .addOnSuccessListener(this, new OnSuccessListener<Void>() {
@@ -234,6 +258,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
                     });
         }
+        else {
+            Log.d(TAG, "Geofences not added, no permission");
+        }
     }
 
     /*
@@ -249,8 +276,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "Location enabled");
-            // Sets the my-location button to display.
             mMap.setMyLocationEnabled(true);
+
+            // Start requestLocationUpdates, this is a best-attempt way to get location...
+            // every 10 seconds.
+            // NOTE: When activity is opened and there is no location permissions...
+            // the location device location does not show up on the map even after accepting location permissions.
+            // requestLocationUpdates fixes this by instantiating the map with location information
+            mFusedLocationClient.requestLocationUpdates
+                    (MapUtility.createLocationRequest(), mLocationCallback,
+                            null /* Looper */);
+
+            // Creating mock sites
+            createMockGeofences();
         }
         // If not then prompt user for permission
         else {
@@ -294,4 +332,25 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         return mGeofencePendingIntent;
     }
+
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Check broadcast is from GeofenceTransitionService
+            if (intent.getAction() == GEOFENCE_TRANSITION_EVENT_BROADCAST) {
+                Log.d(TAG, "Received broadcast from " + GEOFENCE_TRANSITION_EVENT_BROADCAST);
+
+                // Get Geofence and Geofence event information
+                Bundle bundle = intent.getBundleExtra("Geofence");
+                Geofence geofence = bundle.getParcelable("Geofence");
+                int geofenceEvent = intent.getIntExtra("GeofenceTransition", -1);
+
+                // Error occurred when parsing the integer in the Intent
+                if (geofenceEvent == -1)
+                {
+                    throw new InvalidParameterException("GeofenceTransition in Intent use default value");
+                }
+            }
+        }
+    };
 }
