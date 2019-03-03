@@ -10,9 +10,11 @@ public class Record {
     /*
      * 'Record' Database Schema
      */
-    private String checkInOutType;
+    private String clockInOutType;
 
-    private String geoExitEnter;
+    private String geoEnterExit;
+
+    private String jobID;
 
     private LatLng location;
 
@@ -20,32 +22,38 @@ public class Record {
 
     private String userId;
 
+    public static final String CLOCK_IN = "IN";
+    public static final String CLOCK_OUT = "OUT";
+    public static final String GEOFENCE_ENTER = "ENTERED";
+    public static final String GEOFENCE_EXIT = "EXITED";
+
     public Record() {}
 
-    public Record(String checkInOutType, String geoExitEnter,
-                  LatLng location, Date timestamp, String userId) {
-        this.checkInOutType = checkInOutType;
-        this.geoExitEnter = geoExitEnter;
+    public Record(String clockInOutType, String geoEnterExit, String jobID,
+                  LatLng location, String userId) {
+
+        this.clockInOutType = clockInOutType;
+        this.geoEnterExit = geoEnterExit;
+        this.jobID = jobID;
         this.location = location;
-
-        this.userId = userId;this.timestamp = timestamp;
+        this.userId = userId;
     }
 
 
-    public String getCheckInOutType() {
-        return checkInOutType;
+    public String getClocknOutType() {
+        return clockInOutType;
     }
 
-    public void setCheckInOutType(String checkInOutType) {
-        this.checkInOutType = checkInOutType;
+    public void setClockInOutType(String clockInOutType) {
+        this.clockInOutType = clockInOutType;
     }
 
-    public String getGeoExitEnter() {
-        return geoExitEnter;
+    public String getGeoEnterExit() {
+        return geoEnterExit;
     }
 
-    public void setGeoExitEnter(String geoExitEnter) {
-        this.geoExitEnter = geoExitEnter;
+    public void setGeoEnterExit(String geoEnterExit) {
+        this.geoEnterExit = geoEnterExit;
     }
 
     public LatLng getLocation() {
@@ -70,5 +78,13 @@ public class Record {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    public String getJobID() {
+        return jobID;
+    }
+
+    public void setJobID(String jobID) {
+        this.jobID = jobID;
     }
 }

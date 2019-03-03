@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -17,6 +18,8 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
@@ -56,8 +59,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private final String TAG = "DEBUG " + this.getClass().getSimpleName();
 
-    // Google Maps
+    /* Google Maps member variables */
     private GoogleMap mMap;
+    private Map<String, Circle> mDrawnGeofences;
+    private Boolean mIsClockedIn = false;
 
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
@@ -66,16 +71,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent;
     private static final String GEOFENCE_TRANSITION_EVENT_BROADCAST = "GeofenceTransitionEvent";
-    private Map<String, Circle> mDrawnGeofences;
-    private Geofence mCurrentGeoFence;
+    private Geofence mCurrentGeofence;
 
     /* Location member variables */
     private FusedLocationProviderClient mFusedLocationClient;
     private LocationCallback mLocationCallback;
+    private Location mLastLocationUpdate;
 
     /* Firebase member variables */
     private FirebaseFirestore mFirestore;
-    
+
+    /* UI member variables */
+    private Button mClockInOutButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate called");
@@ -84,6 +92,42 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+
+        mClockInOutButton = findViewById(R.id.clockInOutButton);
+        mClockInOutButton.setVisibility(View.INVISIBLE);
+        mClockInOutButton.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View view) {
+
+                // Get records collection
+                CollectionReference records = mFirestore.collection("records");
+                LatLng location = new LatLng(mLastLocationUpdate.getLatitude(), mLastLocationUpdate.getLatitude());
+
+                // If clocked out, then clock in
+                if (!mIsClockedIn) {
+                    // Add record of clock in
+                    records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), location, "USERID123"));
+                    MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
+
+                    // Set clock out button
+                    mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockOutColor));
+                    mClockInOutButton.setText(R.string.clock_out);
+                }
+                // If clocked in, then clock out.
+                else if (mIsClockedIn) {
+                    // Add record of clock out
+                    records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), location, "USERID123"));
+                    MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
+
+                    // Set clock in button
+                    mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
+                    mClockInOutButton.setText(R.string.clock_in);
+                }
+
+                // Change boolean value
+                mIsClockedIn = !mIsClockedIn;
+            }
+        });
 
         initFirebase();
 
@@ -99,7 +143,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mLocationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(LocationResult locationResult) {
-                // TODO Handle Result Here
+                mLastLocationUpdate = locationResult.getLastLocation();
             }
         };
     }
@@ -192,7 +236,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         .alpha(0)
                         .icon(BitmapDescriptorFactory.fromResource(R.drawable.blank_image))
                         .position(coord)
-                        .title(getString(R.string.dropped_pin))
+                        .title(getString(R.string.clock_in))
                         .snippet(snippet))
                         .showInfoWindow();
             }
@@ -205,18 +249,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         LatLng dkit = new LatLng(53.984981, -6.393973);
         LatLng crownPlaza = new LatLng(53.980856, -6.38913);
         LatLng sportsGround = new LatLng(53.989932, -6.389998);
-        // Zoom levels:
-        // 1: World
-        // 5: Landmass / continent
-        // 10: City
-        // 15: Streets
-        // 20: Buildings
-        float zoom = 15;
-        // Create camera update position
-        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(dkit, zoom);
-        // Move camera view to CameraUpdate object location
-        mMap.moveCamera(cameraUpdate);
-
 
         mDrawnGeofences = new HashMap<>();
         Geofence geofence1 = MapUtility.createGeofenceEnterExitTransitions("Dundalk Institute of Technology", dkit);
@@ -225,6 +257,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mDrawnGeofences.put("Crown Plaza", mMap.addCircle(MapUtility.defaultGeofence().center(crownPlaza)));
         Geofence geofence3 = MapUtility.createGeofenceEnterExitTransitions("Muirhevna Sports Ground", sportsGround);
         mDrawnGeofences.put("Muirhevna Sports Ground", mMap.addCircle(MapUtility.defaultGeofence().center(sportsGround)));
+
+        // 15: Street Level Zoom
+        float zoom = 15;
+        // Create camera update position
+        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(dkit, zoom);
+        // Move camera view to CameraUpdate object location
+        mMap.moveCamera(cameraUpdate);
 
         // Group a list of geofences to be monitored and customize how each geofence notifications should be reported
         // In our case, they will all have the same initial trigger which occurs on entering the geofence.
@@ -348,26 +387,57 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Geofence geofence = bundle.getParcelable("Geofence");
                 int geofenceEvent = intent.getIntExtra("GeofenceTransition", -1);
 
+                // Error occurred when parsing the integer in the Intent
+                if (geofenceEvent == -1)
+                {
+                    throw new InvalidParameterException("GeofenceTransition in Intent used default value");
+                }
+
                 Circle drawnGeofence = mDrawnGeofences.get(geofence.getRequestId());
 
                 // Device entered a geofence
                 if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_ENTER) {
-                        mCurrentGeoFence = geofence;
+
+                    // If clocked in and re-entering the geofence, save "ENTERED" geofence record.
+                    // This will indicate a user is clocked in and has re-entered the site after leaving it.
+                    if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                        // Save record
+                        CollectionReference records = mFirestore.collection("records");
+                        records.add(new Record(null, Record.GEOFENCE_ENTER, geofence.getRequestId(), drawnGeofence.getCenter(), "USERID123"));
+
+                        // Update geofence to green
                         MapUtility.setGeofenceGreen(drawnGeofence);
-                    CollectionReference records = mFirestore.collection("records");
-                    records.add(new Record("CHECKIN", null, new LatLng(-5, 30), null, "USERID123"));
+                    }
+                    else {
+
+                        // Hide clock out button
+                        mClockInOutButton.setVisibility(View.VISIBLE);
+                        mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
+                        mClockInOutButton.setText(R.string.clock_in);
+
+                        // Set the geofence the device is in
+                        mCurrentGeofence = geofence;
+                    }
                 }
                 else if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_EXIT) {
-                    MapUtility.setGeofenceDefault(drawnGeofence);
-                }
-                // Error occurred when parsing the integer in the Intent
-                if (geofenceEvent == -1)
-                {
-                    throw new InvalidParameterException("GeofenceTransition in Intent use default value");
-                }
 
-                Log.d(TAG, "REQUEST ID: " + geofence.getRequestId());
-                Log.d(TAG, "REQUEST ID: " + geofenceEvent);
+                    // If clocked in and leaving the geofence, save "EXITED" geofence record.
+                    // This will indicate a user is clocked in and has re-entered the site after leaving it.
+                    if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                        // Save record
+                        CollectionReference records = mFirestore.collection("records");
+                        records.add(new Record(null, Record.GEOFENCE_EXIT, geofence.getRequestId(), drawnGeofence.getCenter(), "USERID123"));
+
+                        // Update geofence to green
+                        MapUtility.setGeofenceRed(drawnGeofence);
+                    }
+                    else {
+                        // No longer required to be in a geofence, remove geofence
+                        mCurrentGeofence = null;
+                        mClockInOutButton.setVisibility(View.INVISIBLE);
+                    }
+
+                }
             }
         }
     };

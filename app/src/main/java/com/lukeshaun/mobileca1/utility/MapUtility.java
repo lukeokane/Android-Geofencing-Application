@@ -30,12 +30,6 @@ public final class MapUtility {
         return geofence;
     }
 
-    public static CircleOptions greenGeofence() {
-        return newCircleOptions()
-                .fillColor(0x4400FF00)
-                .strokeColor(0x9900FF00);
-    }
-
     public static Circle setGeofenceGreen(Circle geofence) {
         geofence.setFillColor(0x4400FF00);
         geofence.setStrokeColor(0x9900FF00);
@@ -43,15 +37,9 @@ public final class MapUtility {
         return geofence;
     }
 
-    public static CircleOptions redGeofence() {
-        return newCircleOptions()
-                .fillColor(0x44FF0000)
-                .strokeColor(0x99FF0000);
-    }
-
     public static Circle setGeofenceRed(Circle geofence) {
         geofence.setFillColor(0x44FF0000);
-        geofence.setStrokeColor(0x9900FF00);
+        geofence.setStrokeColor(0x99FF0000);
         return geofence;
     }
 
