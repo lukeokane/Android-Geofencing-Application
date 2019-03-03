@@ -34,7 +34,6 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Circle;
-import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
@@ -60,15 +59,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
 
-    // Geofencing
+    /* Geofencing member variables */
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent;
+    private static final String GEOFENCE_TRANSITION_EVENT_BROADCAST = "GeofenceTransitionEvent";
+    private Map<String, Circle> mDrawnGeofences;
+    private Geofence mCurrentGeoFence;
+
+    /* Location member variables */
     private FusedLocationProviderClient mFusedLocationClient;
     private LocationCallback mLocationCallback;
-    private static final String GEOFENCE_TRANSITION_EVENT_BROADCAST = "GeofenceTransitionEvent";
 
-    // Track geofences drawn on the map
-    private Map<String, Circle> drawnGeofences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -211,14 +212,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap.moveCamera(cameraUpdate);
 
 
-        drawnGeofences = new HashMap<>();
-
-        drawnGeofences.put("Dundalk Institute of Technology", mMap.addCircle(MapUtility.defaultGeofence().center(dkit)));
+        mDrawnGeofences = new HashMap<>();
         Geofence geofence1 = MapUtility.createGeofenceEnterExitTransitions("Dundalk Institute of Technology", dkit);
-        drawnGeofences.put("Crown Plaza", mMap.addCircle(MapUtility.defaultGeofence().center(crownPlaza)));
+        mDrawnGeofences.put("Dundalk Institute of Technology", mMap.addCircle(MapUtility.defaultGeofence().center(dkit)));
         Geofence geofence2 = MapUtility.createGeofenceEnterExitTransitions("Crown Plaza", crownPlaza);
-        drawnGeofences.put("Muirhevna Sports Ground", mMap.addCircle(MapUtility.defaultGeofence().center(sportsGround)));
+        mDrawnGeofences.put("Crown Plaza", mMap.addCircle(MapUtility.defaultGeofence().center(crownPlaza)));
         Geofence geofence3 = MapUtility.createGeofenceEnterExitTransitions("Muirhevna Sports Ground", sportsGround);
+        mDrawnGeofences.put("Muirhevna Sports Ground", mMap.addCircle(MapUtility.defaultGeofence().center(sportsGround)));
 
         // Group a list of geofences to be monitored and customize how each geofence notifications should be reported
         // In our case, they will all have the same initial trigger which occurs on entering the geofence.
@@ -342,11 +342,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Geofence geofence = bundle.getParcelable("Geofence");
                 int geofenceEvent = intent.getIntExtra("GeofenceTransition", -1);
 
-                Circle drawnGeofence = drawnGeofences.get(geofence.getRequestId());
+                Circle drawnGeofence = mDrawnGeofences.get(geofence.getRequestId());
 
                 // Device entered a geofence
                 if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_ENTER) {
-                    MapUtility.setGeofenceGreen(drawnGeofence);
+                        mCurrentGeoFence = geofence;
+                        MapUtility.setGeofenceGreen(drawnGeofence);
                 }
                 else if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_EXIT) {
                     MapUtility.setGeofenceDefault(drawnGeofence);
