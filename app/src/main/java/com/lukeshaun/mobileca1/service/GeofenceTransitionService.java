@@ -17,6 +17,7 @@ public class GeofenceTransitionService extends IntentService {
     private final String TAG = "DEBUG " + this.getClass().getSimpleName();
 
     private static final String classTAG = "GeofenceService";
+
     public GeofenceTransitionService() {
         super(classTAG);
     }

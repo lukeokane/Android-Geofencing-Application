@@ -38,6 +38,9 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.lukeshaun.mobileca1.classes.Record;
 import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
 import com.lukeshaun.mobileca1.utility.MapUtility;
 
@@ -70,16 +73,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private FusedLocationProviderClient mFusedLocationClient;
     private LocationCallback mLocationCallback;
 
-
+    /* Firebase member variables */
+    private FirebaseFirestore mFirestore;
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         Log.d(TAG, "onCreate called");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+
+        initFirebase();
 
         LocalBroadcastManager.getInstance(this).registerReceiver(
                 mMessageReceiver, new IntentFilter("GeofenceTransitionEvent"));
@@ -348,6 +354,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_ENTER) {
                         mCurrentGeoFence = geofence;
                         MapUtility.setGeofenceGreen(drawnGeofence);
+                    CollectionReference records = mFirestore.collection("records");
+                    records.add(new Record("CHECKIN", null, new LatLng(-5, 30), null, "USERID123"));
                 }
                 else if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_EXIT) {
                     MapUtility.setGeofenceDefault(drawnGeofence);
@@ -363,4 +371,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
     };
+
+    private void initFirebase() {
+        mFirestore = FirebaseFirestore.getInstance();
+    }
 }
