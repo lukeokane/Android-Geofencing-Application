@@ -21,11 +21,16 @@ public class GeofenceTransitionService extends IntentService {
         super(classTAG);
     }
 
+    /**
+     * Receives intents called by the GeofencingClient.
+     * This method occurs when a geofence transition has happened.
+     * The method handles these transition events.
+     * @param intent
+     */
     @Override
     protected void onHandleIntent(Intent intent) {
         // Retrieve the Geofence event passed in
         GeofencingEvent event = GeofencingEvent.fromIntent(intent);
-
         if (event.hasError()) {
             // Log the error
             Log.e("ERROR", "Geofence event returned with error code " + event.getErrorCode());
@@ -37,18 +42,22 @@ public class GeofenceTransitionService extends IntentService {
             // Retrieve the triggering geo fences, get the first element.
             List<Geofence> geofences = event.getTriggeringGeofences();
             Geofence geofence = geofences.get(0);
-            String geofenceId = geofence.getRequestId();
 
-            // Handle geofence transition event
+            // Broadcast transition
             if (transition == Geofence.GEOFENCE_TRANSITION_ENTER) {
                 broadcastGeofenceTransitionEvent(geofence, Geofence.GEOFENCE_TRANSITION_ENTER);
             }
             else if (transition == Geofence.GEOFENCE_TRANSITION_EXIT) {
-                Log.d(TAG, "Exiting geofence - " + geofenceId);
+                broadcastGeofenceTransitionEvent(geofence, Geofence.GEOFENCE_TRANSITION_EXIT);
             }
         }
     }
 
+    /**
+     * Broadcast the change for acitivities to update their UI
+     * @param geofence the geofence that the transition occurred in
+     * @param transition the transition type
+     */
     private void broadcastGeofenceTransitionEvent(Geofence geofence, int transition) {
         Log.d(TAG, "Broadcasting geofence transition event, transition ID: " + transition + ", geofence: " + geofence.getRequestId());
         // Create intent to pass into broadcast manager
