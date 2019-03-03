@@ -53,6 +53,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Geofencing
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent;
+    private int geoFenceCounter = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -185,18 +186,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Create geofence, set location to site location and what callbacks to be triggered
         // Passing in GEOFENCE_TRANSITION_ENTER means the geofence will begin monitoring...
         // when the user immediately enters the geofence.
-        Geofence geofence = new Geofence.Builder()
-                .setRequestId("Geofence1")
-                .setCircularRegion(dkit.latitude, dkit.longitude, 100)
-                .setExpirationDuration(Geofence.NEVER_EXPIRE)
-                .setNotificationResponsiveness(1000)
-                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
-                .build();
+        Geofence geofence1 = MapUtility.createGeofenceEnterExitTransitions("Geofence" + geoFenceCounter++, dkit);
+        Geofence geofence2 = MapUtility.createGeofenceEnterExitTransitions("Geofence" + geoFenceCounter++, crownPlaza);
+        Geofence geofence3 = MapUtility.createGeofenceEnterExitTransitions("Geofence" + geoFenceCounter++, sportsGround);
 
         // Group a list of geofences to be monitored and customize how each geofence notifications should be reported
         // In our case, they will all have the same initial trigger which occurs on entering the geofence.
         List<Geofence> geofenceList = new LinkedList<>();
-        geofenceList.add(geofence);
+        geofenceList.add(geofence1);
+        geofenceList.add(geofence2);
+        geofenceList.add(geofence3);
 
         GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
                 .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
