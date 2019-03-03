@@ -1,10 +1,10 @@
-package com.lukeshaun.mobileca1.utilities;
+package com.lukeshaun.mobileca1.utility;
 
 import com.google.android.gms.maps.model.CircleOptions;
 
-public final class MapUtilities {
+public final class MapUtility {
 
-    private MapUtilities() {
+    private MapUtility() {
     }
 
     private static CircleOptions newCircleOptions() {

@@ -1,6 +1,8 @@
 package com.lukeshaun.mobileca1;
 
 import android.Manifest;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -12,6 +14,12 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.GeofencingClient;
+import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -22,8 +30,13 @@ import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.lukeshaun.mobileca1.utilities.MapUtilities;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
+import com.lukeshaun.mobileca1.utility.MapUtility;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
 
 // Extends AppCompatActivity instead of FragmentActivity to show app bar, therefore shows menu.
@@ -37,17 +50,38 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
 
+    // Geofencing
+    private GeofencingClient mGeofencingClient;
+    private PendingIntent mGeofencePendingIntent;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate called");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+        mGeofencingClient = LocationServices.getGeofencingClient(this);
         mapFragment.getMapAsync(this);
     }
 
+    @Override
+    protected void onResume() {
+        Log.d(TAG, "onResume called");
+        super.onResume();
 
+        // check if Google Play Services is installed...
+        // it is required for geofencing.
+        int response = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this);
+        if (response != ConnectionResult.SUCCESS) {
+            Log.d(TAG, "Google Play Services not available - prompt user to download it");
+            GoogleApiAvailability.getInstance().getErrorDialog(this, response, 1).show();
+        }
+        else {
+            Log.d(TAG, "Google Play Services is installed");
+        }
+    }
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
@@ -61,15 +95,15 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Save map instance in Activity
         mMap = googleMap;
 
-        // Creating mock sites
-        createMockGeofences();
-
         // Creating listener to respond to clicking on geofences
         // Information about a geofence appears
         geoFenceClick(mMap);
 
         // Enable location tracking
         enableLocationTracking();
+
+        // Creating mock sites
+        createMockGeofences();
     }
 
     @Override
@@ -148,10 +182,59 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Move camera view to CameraUpdate object location
         mMap.moveCamera(cameraUpdate);
 
+        // Create geofence, set location to site location and what callbacks to be triggered
+        // Passing in GEOFENCE_TRANSITION_ENTER means the geofence will begin monitoring...
+        // when the user immediately enters the geofence.
+        Geofence geofence = new Geofence.Builder()
+                .setRequestId("Geofence1")
+                .setCircularRegion(dkit.latitude, dkit.longitude, 100)
+                .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                .setNotificationResponsiveness(1000)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
+                .build();
+
+        // Group a list of geofences to be monitored and customize how each geofence notifications should be reported
+        // In our case, they will all have the same initial trigger which occurs on entering the geofence.
+        List<Geofence> geofenceList = new LinkedList<>();
+        geofenceList.add(geofence);
+
+        GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
+                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                .addGeofences(geofenceList)
+                .build();
+
         // Draw default geofences on map and set position
-        drawGeofence(MapUtilities.defaultGeofence().center(dkit));
-        drawGeofence(MapUtilities.defaultGeofence().center(crownPlaza));
-        drawGeofence(MapUtilities.defaultGeofence().center(sportsGround));
+        drawGeofence(MapUtility.defaultGeofence().center(dkit));
+        drawGeofence(MapUtility.defaultGeofence().center(crownPlaza));
+        drawGeofence(MapUtility.defaultGeofence().center(sportsGround));
+
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            // Sends a pending intent with a list of Geofence transitions to the GeofenceTransitionService when any occur.
+            mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent())
+                    // If error
+                    .addOnSuccessListener(this, new OnSuccessListener<Void>() {
+                        @Override
+                        public void onSuccess(Void aVoid) {
+                            Log.d(TAG, "Geofences Added");
+                        }
+                    })
+                    .addOnFailureListener(this, new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+                            // This error usually occurs when location access is turned off.
+                            // This error can also occur on an emulator when all location services (GPS / WiFi / Network) are turned on (my experience).
+                            // If running on an emulator, turn off all location services and turn back on again to prevent this emulator issue.
+                            if (e.getMessage().contains("1000")) {
+                                Log.w(TAG, "GEOFENCE_NOT_AVAILABLE error on adding geofences");
+                            }
+                            else {
+                                Log.d(TAG, "Geofence adding failed: " + e.getStackTrace().toString());
+                            }
+                        }
+                    });
+        }
     }
 
     /*
@@ -194,5 +277,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     break;
                 }
         }
+    }
+
+    private PendingIntent getGeofencePendingIntent() {
+        // Reuse the PendingIntent
+        if (mGeofencePendingIntent != null)
+        {
+            return mGeofencePendingIntent;
+        }
+
+        // Create new intent
+        Intent intent = new Intent(this, GeofenceTransitionService.class);
+
+        // Indicating what service to send Geofence transition events to when they occur.
+        // Using flag FLAG_UPDATE_CURRENT to get same pending intent back.
+        mGeofencePendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        return mGeofencePendingIntent;
     }
 }

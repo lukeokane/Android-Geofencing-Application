@@ -20,7 +20,7 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCLoUq3gUMI2jhcMz_sb5qkuAh58UPvVq4"/>
 
-        <service android:name=".GeofenceTransitionsIntentService"/>
+        <service android:name=".service.GeofenceTransitionService"/>
 
         <activity
             android:name=".MainActivity"
