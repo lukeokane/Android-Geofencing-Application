@@ -44,6 +44,7 @@ import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.lukeshaun.mobileca1.classes.Record;
 import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
+import com.lukeshaun.mobileca1.service.NotificationService;
 import com.lukeshaun.mobileca1.utility.MapUtility;
 
 import java.security.InvalidParameterException;
@@ -409,6 +410,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         // Update geofence to green
                         MapUtility.setGeofenceGreen(drawnGeofence);
+
+                        sendMessage("You have re-entered the site", "You left the site for a while and are now back");
                     }
                     else {
 
@@ -432,6 +435,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         // Update geofence to green
                         MapUtility.setGeofenceRed(drawnGeofence);
+
+                        sendMessage("You have left the site", "You are now outside of the site, you will be clocked out automatically in 5 minutes");
                     }
                     else {
                         // No longer required to be in a geofence, remove geofence
@@ -459,5 +464,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void initFirebase() {
         mFirestore = FirebaseFirestore.getInstance();
+    }
+
+    private void sendMessage(String title, String message) {
+        Intent intent = new Intent(this, NotificationService.class);
+        intent.putExtra("title", title);
+        intent.putExtra("message", message);
+        startService(intent);
     }
 }

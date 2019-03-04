@@ -22,7 +22,7 @@ public class GeofenceTransitionService extends Service {
 
     private final String TAG = "DEBUG " + this.getClass().getSimpleName();
 
-    private static final String NOTIFICATION_ID = "com.lukeshaun.mobileca1";
+
 
     public GeofenceTransitionService() {}
 

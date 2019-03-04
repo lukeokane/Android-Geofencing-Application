@@ -22,6 +22,7 @@
             android:value="AIzaSyCLoUq3gUMI2jhcMz_sb5qkuAh58UPvVq4"/>
 
         <service android:name=".service.GeofenceTransitionService"/>
+        <service android:name=".service.NotificationService"/>
 
         <activity
             android:name=".MainActivity"
