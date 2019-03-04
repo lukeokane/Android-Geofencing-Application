@@ -1,10 +1,14 @@
 package com.lukeshaun.mobileca1.service;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcelable;
@@ -35,20 +39,32 @@ public class GeofenceTransitionService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        String NOTIFICATION_ID = "com.lukeshaun.mobileca1";
-
         Intent notificationIntent = new Intent(this, MapsActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
 
-        Notification notification = new NotificationCompat.Builder(this, NOTIFICATION_ID)
-                .setContentTitle("Construction Site App")
-                .setContentText("Construction Site App is running in the background")
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setColor(Color.BLUE)
-                .setContentIntent(pendingIntent)
-                .build();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String NOTIFICATION_CHANNEL_ID = "com.lukeshaun.mobileca1";
+            String channelName = "My Background Service";
+            NotificationChannel chan = new NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE);
+            chan.setLightColor(Color.BLUE);
+            chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            assert manager != null;
+            manager.createNotificationChannel(chan);
 
-        startForeground(1, notification);
+            NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID);
+            Notification notification = notificationBuilder.setOngoing(true)
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle("App is running in background")
+                    .setPriority(NotificationManager.IMPORTANCE_MIN)
+                    .setCategory(Notification.CATEGORY_SERVICE)
+                    .setContentIntent(pendingIntent)
+                    .build();
+            startForeground(2, notification);
+        }
+        else {
+            startForeground(1, new Notification());
+        }
     }
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
