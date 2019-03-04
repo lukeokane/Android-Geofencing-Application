@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcelable;
@@ -42,7 +43,8 @@ public class GeofenceTransitionService extends Service {
         Notification notification = new NotificationCompat.Builder(this, NOTIFICATION_ID)
                 .setContentTitle("Construction Site App")
                 .setContentText("Construction Site App is running in the background")
-                .setSmallIcon(R.drawable.common_google_signin_btn_icon_light)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setColor(Color.BLUE)
                 .setContentIntent(pendingIntent)
                 .build();
 
