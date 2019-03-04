@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -76,7 +75,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /* Location member variables */
     private FusedLocationProviderClient mFusedLocationClient;
     private LocationCallback mLocationCallback;
-    private Location mLastLocationUpdate;
+    private LatLng mLastLocationUpdate;
 
     /* Firebase member variables */
     private FirebaseFirestore mFirestore;
@@ -101,12 +100,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 // Get records collection
                 CollectionReference records = mFirestore.collection("records");
-                LatLng location = new LatLng(mLastLocationUpdate.getLatitude(), mLastLocationUpdate.getLatitude());
 
                 // If clocked out, then clock in
                 if (!mIsClockedIn) {
                     // Add record of clock in
-                    records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), location, "USERID123"));
+                    records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
                     MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
 
                     // Set clock out button
@@ -116,7 +114,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // If clocked in, then clock out.
                 else if (mIsClockedIn) {
                     // Add record of clock out
-                    records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), location, "USERID123"));
+                    records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
                     MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
 
                     // Set clock in button
@@ -128,6 +126,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mIsClockedIn = !mIsClockedIn;
             }
         });
+
+        Intent intent = new Intent(this, GeofenceTransitionService.class);
+        startService(intent);
 
         initFirebase();
 
@@ -143,7 +144,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mLocationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(LocationResult locationResult) {
-                mLastLocationUpdate = locationResult.getLastLocation();
+                mLastLocationUpdate = new LatLng(locationResult.getLastLocation().getLatitude(), locationResult.getLastLocation().getLongitude());
             }
         };
     }
@@ -365,10 +366,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             return mGeofencePendingIntent;
         }
 
-        // Create new intent
+        // Create intent with identifier
         Intent intent = new Intent(this, GeofenceTransitionService.class);
+        intent.putExtra("GEOFENCE_REQUEST", "");
 
-        // Indicating what service to send Geofence transition events to when they occur.
+        // Indicating what service to send GeofencingClient transition events to when they occur.
         // Using flag FLAG_UPDATE_CURRENT to get same pending intent back.
         mGeofencePendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -441,6 +443,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
     };
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (mIsClockedIn == true) {
+            // Save record
+            CollectionReference records = mFirestore.collection("records");
+            records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
+        }
+
+        Intent intent = new Intent(this, GeofenceTransitionService.class);
+        stopService(intent);
+    }
 
     private void initFirebase() {
         mFirestore = FirebaseFirestore.getInstance();

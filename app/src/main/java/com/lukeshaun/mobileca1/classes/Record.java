@@ -40,7 +40,7 @@ public class Record {
     }
 
 
-    public String getClocknOutType() {
+    public String getClockInOutType() {
         return clockInOutType;
     }
 
