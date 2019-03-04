@@ -52,12 +52,12 @@ public class NotificationService extends IntentService {
         // Get system's notification manager
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        //
-        String NOTIFICATION_CHANNEL_ID = "com.mobiledev.oc.whatshappening.notification";
+
+
 
         // If SDK version is Oreo or greater, use NotificationChannel to style notifications.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, "Notification",
+            NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_ID, "Notification",
                     NotificationManager.IMPORTANCE_HIGH);
 
             notificationChannel.setDescription("");
@@ -71,10 +71,11 @@ public class NotificationService extends IntentService {
         }
 
         // Build notification
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID);
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_ID);
 
         // Modify text and view of notification
         notificationBuilder
+                .setChannelId(NOTIFICATION_ID)
                 .setContentTitle(title)
                 .setContentIntent(pendingIntent)
                 .setContentText(message)
