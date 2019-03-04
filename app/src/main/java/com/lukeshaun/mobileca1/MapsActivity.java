@@ -72,6 +72,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private PendingIntent mGeofencePendingIntent;
     private static final String GEOFENCE_TRANSITION_EVENT_BROADCAST = "GeofenceTransitionEvent";
     private Geofence mCurrentGeofence;
+    private boolean mInGeofence;
 
     /* Location member variables */
     private FusedLocationProviderClient mFusedLocationClient;
@@ -108,7 +109,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
                     MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
 
-                    // Set clock out button
+                    // Set clock out style
                     mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockOutColor));
                     mClockInOutButton.setText(R.string.clock_out);
                 }
@@ -118,9 +119,15 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
                     MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
 
-                    // Set clock in button
+                    // If user clocked out while not in the geofence, hide button.
+                    if (!mInGeofence) {
+                        mClockInOutButton.setVisibility(View.INVISIBLE);
+                    }
+
+                    // Set clock in style
                     mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
                     mClockInOutButton.setText(R.string.clock_in);
+
                 }
 
                 // Change boolean value
@@ -222,25 +229,29 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         map.setOnCircleClickListener(new GoogleMap.OnCircleClickListener() {
             @Override
             public void onCircleClick(Circle circle) {
-                // Get center of circle
-                LatLng coord = circle.getCenter();
 
-                Log.d(TAG, "Geofence clicked at location " + coord.toString());
+                for (String key : mDrawnGeofences.keySet()) {
+                    if (mDrawnGeofences.get(key).getCenter().equals(circle.getCenter())) {
 
-                // Create text to add to info window.
-                String snippet = String.format(Locale.getDefault(),
-                        "Lat: %1$.5f, Long: %2$.5f",
-                        coord.latitude,
-                        coord.longitude);
+                        Log.d(TAG, "Geofence clicked at geofence " + key);
 
-                // Create an invisible marker with 0x0, needed to display information window at circle.
-                map.addMarker(new MarkerOptions()
-                        .alpha(0)
-                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.blank_image))
-                        .position(coord)
-                        .title(getString(R.string.clock_in))
-                        .snippet(snippet))
-                        .showInfoWindow();
+
+                        // Create text to add to info window.
+                        String snippet = String.format(Locale.getDefault(),
+                                "Active Job Location",
+                                circle.getCenter().latitude,
+                                circle.getCenter().longitude);
+
+                        // Create an invisible marker with 0x0, needed to display information window at circle.
+                        map.addMarker(new MarkerOptions()
+                                .alpha(0)
+                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.blank_image))
+                                .position(circle.getCenter())
+                                .title(key)
+                                .snippet(snippet))
+                                .showInfoWindow();
+                    }
+                }
             }
         });
     }
@@ -412,6 +423,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         MapUtility.setGeofenceGreen(drawnGeofence);
 
                         sendMessage("You have re-entered the site", "You left the site for a while and are now back");
+
                     }
                     else {
 
@@ -423,6 +435,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Set the geofence the device is in
                         mCurrentGeofence = geofence;
                     }
+
+                    mInGeofence = true;
                 }
                 else if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_EXIT) {
 
@@ -444,6 +458,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         mClockInOutButton.setVisibility(View.INVISIBLE);
                     }
 
+                    mInGeofence = false;
                 }
             }
         }
@@ -472,4 +487,5 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         intent.putExtra("message", message);
         startService(intent);
     }
+
 }

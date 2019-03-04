@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
+import android.util.Log;
 
 import com.lukeshaun.mobileca1.MapsActivity;
 import com.lukeshaun.mobileca1.R;
@@ -45,15 +46,17 @@ public class NotificationService extends IntentService {
      */
     private void sendNotification(String title, String message) {
 
+        Log.d(TAG, "Sending notification with title '" + title + "'");
+
         // User will be navigated to MapActivity when they tap on the notification
         Intent intent = new Intent(this, MapsActivity.class);
+
+        // Set this flag so the notification will re-open the MapsActivity's current instance.
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pendingIntent = PendingIntent.getActivity(this,0,intent,PendingIntent.FLAG_ONE_SHOT);
 
         // Get system's notification manager
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-
-
 
         // If SDK version is Oreo or greater, use NotificationChannel to style notifications.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
