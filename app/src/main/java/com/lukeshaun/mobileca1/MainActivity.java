@@ -2,6 +2,7 @@ package com.lukeshaun.mobileca1;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
@@ -108,7 +109,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 firebaseAuthWithGoogle(account);
                 findViewById(R.id.sign_in_button).setVisibility(View.INVISIBLE);
                 ProgressBar pb = findViewById(R.id.pbLoading);
-                pb.getIndeterminateDrawable().setColorFilter(0xFFFF0000, android.graphics.PorterDuff.Mode.MULTIPLY);
+                pb.getIndeterminateDrawable().setColorFilter(Color.parseColor("#008577"), android.graphics.PorterDuff.Mode.MULTIPLY);
                 pb.setVisibility(ProgressBar.VISIBLE);
             } catch (ApiException e) {
                 // Google Sign In failed, update UI appropriately
@@ -146,13 +147,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void updateUI(FirebaseUser user) {
         ProgressBar pb = findViewById(R.id.pbLoading);
-        pb.setVisibility(ProgressBar.INVISIBLE);
         if (user != null) {
             Intent alreadyLoggedInIntent = new Intent(this, MapsActivity.class);
             startActivity(alreadyLoggedInIntent);
+            pb.setVisibility(ProgressBar.INVISIBLE);
 
         } else {
             findViewById(R.id.sign_in_button).setOnClickListener(this);
+            pb.setVisibility(ProgressBar.INVISIBLE);
         }
     }
 
