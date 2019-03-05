@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -37,11 +38,13 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.lukeshaun.mobileca1.AsyncTask.AddressTask;
 import com.lukeshaun.mobileca1.classes.Record;
 import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
 import com.lukeshaun.mobileca1.service.NotificationService;
@@ -63,6 +66,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private GoogleMap mMap;
     private Map<String, Circle> mDrawnGeofences;
     private Boolean mIsClockedIn = false;
+    private Marker mMarker;
 
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
@@ -235,21 +239,29 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         Log.d(TAG, "Geofence clicked at geofence " + key);
 
+                        // Start the reverse geocode AsyncTask
+                        Location location = new Location("");
+                        location.setLatitude(circle.getCenter().latitude);
+                        location.setLongitude(circle.getCenter().longitude);
 
                         // Create text to add to info window.
                         String snippet = String.format(Locale.getDefault(),
-                                "Active Job Location",
+                                getString(R.string.loading),
                                 circle.getCenter().latitude,
                                 circle.getCenter().longitude);
 
-                        // Create an invisible marker with 0x0, needed to display information window at circle.
-                        map.addMarker(new MarkerOptions()
+                        // Create an invisible mMarker with 0x0, needed to display information window at circle.
+                        mMarker = map.addMarker(new MarkerOptions()
                                 .alpha(0)
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.blank_image))
                                 .position(circle.getCenter())
                                 .title(key)
-                                .snippet(snippet))
-                                .showInfoWindow();
+                                .snippet(snippet));
+                        mMarker.showInfoWindow();
+
+                        new AddressTask(MapsActivity.this,
+                                mMarker).execute(location);
+
                     }
                 }
             }
@@ -258,7 +270,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
     private void createMockGeofences() {
-        // Add a marker to DkIT and move the camera
+        // Add a mMarker to DkIT and move the camera
         LatLng dkit = new LatLng(53.984981, -6.393973);
         LatLng crownPlaza = new LatLng(53.980856, -6.38913);
         LatLng sportsGround = new LatLng(53.989932, -6.389998);

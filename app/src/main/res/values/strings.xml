@@ -8,4 +8,8 @@
     <string name="terrain_map">Terrain Map</string>
     <string name="clock_in">Check In</string>
     <string name="clock_out">Check Out</string>
+    <string name="no_address_found">No address found</string>
+    <string name="loading">Loading…</string>
+    <string name="service_not_available">Service not available</string>
+    <string name="invalid_lat_long_used">Invalid coordinates used</string>
 </resources>
