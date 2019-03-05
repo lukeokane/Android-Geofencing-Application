@@ -49,6 +49,7 @@ import com.lukeshaun.mobileca1.classes.Record;
 import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
 import com.lukeshaun.mobileca1.service.NotificationService;
 import com.lukeshaun.mobileca1.utility.MapUtility;
+import com.lukeshaun.mobileca1.Adapter.InfoWindowAdapter;
 
 import java.security.InvalidParameterException;
 import java.util.HashMap;
@@ -190,6 +191,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Save map instance in Activity
         mMap = googleMap;
 
+        InfoWindowAdapter infoWindow = new InfoWindowAdapter(this);
+        mMap.setInfoWindowAdapter(infoWindow);
+
         // Creating listener to respond to clicking on geofences
         // Information about a geofence appears
         geoFenceClick(mMap);
@@ -255,9 +259,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 .alpha(0)
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.blank_image))
                                 .position(circle.getCenter())
-                                .title(key)
-                                .snippet(snippet));
-                        mMarker.showInfoWindow();
+                                .title(key));
 
                         new AddressTask(MapsActivity.this,
                                 mMarker).execute(location);
