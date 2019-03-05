@@ -436,7 +436,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Update geofence to green
                         MapUtility.setGeofenceGreen(drawnGeofence);
 
-                        sendMessage("You have re-entered the site", "You left the site for a while and are now back");
+                        sendMessage("Re-entered the site", "You left the site and are now back");
 
                     }
                     else {
@@ -464,7 +464,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Update geofence to green
                         MapUtility.setGeofenceRed(drawnGeofence);
 
-                        sendMessage("You have left the site", "You are now outside of the site, you will be clocked out automatically in 5 minutes");
+                        sendMessage("Leaving site while clocked in", "WARNING: you are now outside of the site while clocked in.");
                     }
                     else {
                         // No longer required to be in a geofence, remove geofence
