@@ -1,11 +1,14 @@
 package com.lukeshaun.mobileca1;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -68,6 +71,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         updateUI(currentUser);
     }
 
+//    @Override
+//    public void onResume(){
+//        super.onResume();
+//        mAuth = FirebaseAuth.getInstance();
+//        // Check if user is signed in (non-null) and update UI accordingly.
+//        FirebaseUser currentUser = mAuth.getCurrentUser();
+//        updateUI(currentUser);
+//
+//    }
+
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
@@ -82,20 +95,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         startActivityForResult(signInIntent, RC_SIGN_IN);
     }
 
-    private void signOut() {
-        // Firebase sign out
-        mAuth.signOut();
-
-        // Google sign out
-        mGoogleSignInClient.signOut().addOnCompleteListener(this,
-                new OnCompleteListener<Void>() {
-                    @Override
-                    public void onComplete(@NonNull Task<Void> task) {
-                        updateUI(null);
-                    }
-                });
-    }
-
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -107,6 +106,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 // Google Sign In was successful, authenticate with Firebase
                 GoogleSignInAccount account = task.getResult(ApiException.class);
                 firebaseAuthWithGoogle(account);
+                findViewById(R.id.sign_in_button).setVisibility(View.INVISIBLE);
+                ProgressBar pb = findViewById(R.id.pbLoading);
+                pb.getIndeterminateDrawable().setColorFilter(0xFFFF0000, android.graphics.PorterDuff.Mode.MULTIPLY);
+                pb.setVisibility(ProgressBar.VISIBLE);
             } catch (ApiException e) {
                 // Google Sign In failed, update UI appropriately
                 Log.w(TAG, "Google sign in failed", e);
@@ -120,10 +123,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // [START auth_with_google]
     private void firebaseAuthWithGoogle(GoogleSignInAccount acct) {
         Log.d(TAG, "firebaseAuthWithGoogle:" + acct.getId());
-        // [START_EXCLUDE silent]
-        //showProgressDialog();
-        // [END_EXCLUDE]
-
         AuthCredential credential = GoogleAuthProvider.getCredential(acct.getIdToken(), null);
         mAuth.signInWithCredential(credential)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
@@ -137,33 +136,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         } else {
                             // If sign in fails, display a message to the user.
                             Log.w(TAG, "signInWithCredential:failure", task.getException());
-                            //Snackbar.make(findViewById(R.id.main_layout), "Authentication Failed.", Snackbar.LENGTH_SHORT).show();
                             Toast.makeText(getApplicationContext(), "Authentication Failed.", Toast.LENGTH_SHORT).show();
                             updateUI(null);
                         }
-
-                        // [START_EXCLUDE]
-                        //hideProgressDialog();
-                        // [END_EXCLUDE]
                     }
                 });
     }
     // [END auth_with_google]
 
     private void updateUI(FirebaseUser user) {
-        //hideProgressDialog();
+        ProgressBar pb = findViewById(R.id.pbLoading);
+        pb.setVisibility(ProgressBar.INVISIBLE);
         if (user != null) {
-            //mStatusTextView.setText(getString(R.string.google_status_fmt, user.getEmail()));
-            //mDetailTextView.setText(getString(R.string.firebase_status_fmt, user.getUid()));
             Intent alreadyLoggedInIntent = new Intent(this, MapsActivity.class);
             startActivity(alreadyLoggedInIntent);
-            //findViewById(R.id.signOutAndDisconnect).setVisibility(View.VISIBLE);
-        } else {
-            //mStatusTextView.setText(R.string.signed_out);
-            //mDetailTextView.setText(null);
 
-            findViewById(R.id.sign_in_button).setVisibility(View.VISIBLE);
-            //findViewById(R.id.signOutAndDisconnect).setVisibility(View.GONE);
+        } else {
             findViewById(R.id.sign_in_button).setOnClickListener(this);
         }
     }

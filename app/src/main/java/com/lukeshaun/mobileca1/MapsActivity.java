@@ -20,7 +20,11 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -40,8 +44,11 @@ import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.lukeshaun.mobileca1.AsyncTask.AddressTask;
@@ -89,6 +96,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     /* UI member variables */
     private Button mClockInOutButton;
+
+    private FirebaseAuth mAuth;
+
+    private GoogleSignInClient mGoogleSignInClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -160,6 +171,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mLastLocationUpdate = new LatLng(locationResult.getLastLocation().getLatitude(), locationResult.getLastLocation().getLongitude());
             }
         };
+
+        mAuth = FirebaseAuth.getInstance();
+        // [START config_signin]
+        // Configure sign-in to request the user's ID, email address, and basic
+        // profile. ID and basic profile are included in DEFAULT_SIGN_IN.
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestEmail()
+                .build();
+        // [END config_signin]
+        // Build a GoogleSignInClient with the options specified by gso.
+        mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
+
     }
 
     @Override
@@ -226,9 +249,35 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             case R.id.terrain_map:
                 mMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
                 return true;
+            case R.id.sign_out_button:
+                signOut();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    private void signOut()
+    {
+        // Firebase sign out
+        mAuth.signOut();
+
+        // Google sign out
+        mGoogleSignInClient.signOut().addOnCompleteListener(this,
+                new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        onSignOutComplete();
+                        Toast.makeText(getApplicationContext(), "You have been signed out.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void onSignOutComplete()
+    {
+        Intent signedOutIntent = new Intent(this, MainActivity.class);
+        startActivity(signedOutIntent);
+        finish();
     }
 
     // Respond to user clicking on a geofence.
@@ -269,7 +318,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
     }
-
 
     private void createMockGeofences() {
         // Add a mMarker to DkIT and move the camera

@@ -13,4 +13,7 @@
     <item android:id="@+id/terrain_map"
         android:title="@string/terrain_map"
         app:showAsAction="never"/>
+    <item android:id="@+id/sign_out_button"
+        android:title="@string/sign_out_button"
+        app:showAsAction="never"/>
 </menu>
