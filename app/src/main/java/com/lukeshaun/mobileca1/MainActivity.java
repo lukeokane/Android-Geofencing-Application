@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private GoogleSignInClient mGoogleSignInClient;
 
-    private static final String DEFAULT_WEB_CLIENT_ID = "568676644975-cs0fq13os4tqvdnf7n7f9q5rsnnckf92.apps.googleusercontent.com";
+    private static final String DEFAULT_WEB_CLIENT_ID = "568676644975-criqj78pg919rfp1461h5q3i6k5oli6f.apps.googleusercontent.com";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

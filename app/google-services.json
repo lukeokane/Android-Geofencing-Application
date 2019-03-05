@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "568676644975-548ltui317eqeh3dqk87bjscc8cl42ps.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lukeshaun.mobileca1",
+            "certificate_hash": "2622c02a42cc22035a35c1219eddcf518b41d78b"
+          }
+        },
+        {
           "client_id": "568676644975-criqj78pg919rfp1461h5q3i6k5oli6f.apps.googleusercontent.com",
           "client_type": 3
         }
