@@ -53,6 +53,9 @@ public class NotificationService extends IntentService {
 
         // Set this flag so the notification will re-open the MapsActivity's current instance.
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        // Set PendingIntent flag as FLAG_ONE_SHOT to prevent the notification creating a new MapActivity instance.
+        // So the user will be directed to the current instance of MapActivity only.
+        // Once this notification is clicked, the PendingIntent will fail since it is set to only be called once.
         PendingIntent pendingIntent = PendingIntent.getActivity(this,0,intent,PendingIntent.FLAG_ONE_SHOT);
 
         // Get system's notification manager

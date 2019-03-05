@@ -40,30 +40,38 @@ public class GeofenceTransitionService extends Service {
         super.onCreate();
 
         Intent notificationIntent = new Intent(this, MapsActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+        // Set this flag so the notification will re-open the MapsActivity's current instance.
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        // Set PendingIntent flag as FLAG_IMMUTABLE to prevent additional intent changes from occuring,
+        // so the user will be directed to the current instance of MapActivity only.
+        // This means new MapActivity instances will never be created on clicking on the Foreground Service notification, only the current one is used.
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
 
+        // Oreo requires notifications to be grouped by a channel id via NotificationChannel
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             String NOTIFICATION_CHANNEL_ID = "com.lukeshaun.mobileca1";
-            String channelName = "My Background Service";
+            String channelName = "Construction Company App";
             NotificationChannel chan = new NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE);
             chan.setLightColor(Color.BLUE);
-            chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
-            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            assert manager != null;
-            manager.createNotificationChannel(chan);
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationIntent != null) {
+                notificationManager.createNotificationChannel(chan);
+            }
 
+            // Set up visual notification to be presented to the user.
+            // Pass the i
             NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID);
             Notification notification = notificationBuilder.setOngoing(true)
                     .setSmallIcon(R.drawable.ic_launcher_foreground)
-                    .setContentTitle("App is running in background")
+                    .setContentTitle("Construction Company App is running in the background...")
                     .setPriority(NotificationManager.IMPORTANCE_MIN)
                     .setCategory(Notification.CATEGORY_SERVICE)
                     .setContentIntent(pendingIntent)
                     .build();
-            startForeground(2, notification);
+            startForeground(1, notification);
         }
         else {
-            startForeground(1, new Notification());
+            startForeground(2, new Notification());
         }
     }
     @Override
