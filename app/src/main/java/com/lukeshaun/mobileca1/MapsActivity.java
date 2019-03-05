@@ -97,8 +97,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /* UI member variables */
     private Button mClockInOutButton;
 
+    /* User Information variables */
     private FirebaseAuth mAuth;
-
     private GoogleSignInClient mGoogleSignInClient;
 
     @Override
@@ -122,7 +122,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // If clocked out, then clock in
                 if (!mIsClockedIn) {
                     // Add record of clock in
-                    records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
+                    records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
                     MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
 
                     // Set clock out style
@@ -132,7 +132,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // If clocked in, then clock out.
                 else if (mIsClockedIn) {
                     // Add record of clock out
-                    records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
+                    records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
                     MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
 
                     // If user clocked out while not in the geofence, hide button.
@@ -479,7 +479,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
                         // Save record
                         CollectionReference records = mFirestore.collection("records");
-                        records.add(new Record(null, Record.GEOFENCE_ENTER, geofence.getRequestId(), drawnGeofence.getCenter(), "USERID123"));
+                        records.add(new Record(null, Record.GEOFENCE_ENTER, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
 
                         // Update geofence to green
                         MapUtility.setGeofenceGreen(drawnGeofence);
@@ -507,7 +507,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
                         // Save record
                         CollectionReference records = mFirestore.collection("records");
-                        records.add(new Record(null, Record.GEOFENCE_EXIT, geofence.getRequestId(), drawnGeofence.getCenter(), "USERID123"));
+                        records.add(new Record(null, Record.GEOFENCE_EXIT, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
 
                         // Update geofence to green
                         MapUtility.setGeofenceRed(drawnGeofence);
