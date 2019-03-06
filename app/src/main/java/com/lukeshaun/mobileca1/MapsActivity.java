@@ -20,6 +20,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -27,6 +28,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
@@ -48,6 +50,11 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.model.PlaceLikelihood;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
+import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -57,13 +64,17 @@ import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
 import com.lukeshaun.mobileca1.service.NotificationService;
 import com.lukeshaun.mobileca1.utility.MapUtility;
 import com.lukeshaun.mobileca1.Adapter.InfoWindowAdapter;
+import com.google.android.libraries.places.api.Places;
 
 import java.security.InvalidParameterException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 
 // Extends AppCompatActivity instead of FragmentActivity to show app bar, therefore shows menu.
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
@@ -75,6 +86,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Map<String, Circle> mDrawnGeofences;
     private Boolean mIsClockedIn = false;
     private Marker mMarker;
+    private ImageView mNearbyPlacesButton;
 
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
@@ -100,6 +112,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /* User Information variables */
     private FirebaseAuth mAuth;
     private GoogleSignInClient mGoogleSignInClient;
+
+    /* Places member variables */
+    private PlacesClient mPlacesClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -182,6 +197,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // [END config_signin]
         // Build a GoogleSignInClient with the options specified by gso.
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
+
+
+
+        // Initialize Places.
+        Places.initialize(getApplicationContext(), getResources().getString(R.string.google_api_key));
+
+
+        mNearbyPlacesButton = findViewById(R.id.nearbyPlacesButton);
+        mNearbyPlacesButton.setOnClickListener(nearbyPlacesListener);
+        // Create a new Places client instance.
+        mPlacesClient = Places.createClient(this);
+
 
     }
 
@@ -355,7 +382,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .build();
 
         if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
+                ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
 
             // Sends a pending intent with a list of Geofence transitions to the GeofenceTransitionService when any occur.
@@ -390,7 +417,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private void enableLocationTracking() {
         // Check if fine location permission has been allowed.
         if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
+                ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "Location enabled");
             mMap.setMyLocationEnabled(true);
@@ -411,7 +438,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         else {
             Log.d(TAG, "Location not enabled");
             ActivityCompat.requestPermissions(this, new String[]
-                            {Manifest.permission.ACCESS_FINE_LOCATION},
+                            {ACCESS_FINE_LOCATION},
                     REQUEST_LOCATION_PERMISSION);
         }
     }
@@ -550,4 +577,50 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         startService(intent);
     }
 
+    private void findCurrentPlace() {
+
+        // Use fields to define the data types to return.
+        List<Place.Field> placeFields = Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.PHOTO_METADATAS);
+
+// Use the builder to create a FindCurrentPlaceRequest.
+        FindCurrentPlaceRequest request =
+                FindCurrentPlaceRequest.builder(placeFields).build();
+
+// Call findCurrentPlace and handle the response (first check that the user has granted permission).
+        if (ContextCompat.checkSelfPermission(this, ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            Task<FindCurrentPlaceResponse> placeResponse = mPlacesClient.findCurrentPlace(request);
+            placeResponse.addOnCompleteListener(new OnCompleteListener<FindCurrentPlaceResponse>() {
+                @Override
+                public void onComplete(@NonNull Task<FindCurrentPlaceResponse> task) {
+                    if (task.isSuccessful()) {
+                        FindCurrentPlaceResponse response = task.getResult();
+                        for (PlaceLikelihood placeLikelihood : response.getPlaceLikelihoods()) {
+                            Log.i(TAG, String.format("Place '%s' has likelihood: %f",
+                                    placeLikelihood.getPlace().getName(),
+                                    placeLikelihood.getLikelihood()));
+                        }
+                    } else {
+                        Exception exception = task.getException();
+                        if (exception instanceof ApiException) {
+                            ApiException apiException = (ApiException) exception;
+                            Log.e(TAG, "Place not found: " + apiException.getStatusCode());
+                        }
+                    }
+                }
+            });
+        } else {
+            enableLocationTracking();
+        }
+
+    }
+
+    private ImageView.OnClickListener nearbyPlacesListener = new ImageView.OnClickListener() {
+
+
+        @Override
+        public void onClick(View v) {
+            Intent nearbyPlacesIntent = new Intent(getApplicationContext(), NearbyPlacesActivity.class);
+            startActivity(nearbyPlacesIntent);
+        }
+    };
 }

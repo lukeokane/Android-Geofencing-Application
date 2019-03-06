@@ -41,4 +41,7 @@ dependencies {
     // Firebase Auth
     implementation 'com.google.firebase:firebase-auth:16.1.0'
     implementation 'com.google.android.gms:play-services-auth:16.0.1'
+
+    // Google Places
+    implementation 'com.google.android.libraries.places:places:1.0.0'
 }
