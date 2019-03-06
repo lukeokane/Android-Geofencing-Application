@@ -1,13 +1,24 @@
 package com.lukeshaun.mobileca1.Adapter;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.net.FetchPhotoRequest;
+import com.google.android.libraries.places.api.net.FetchPhotoResponse;
+import com.google.android.libraries.places.api.net.PlacesClient;
 import com.lukeshaun.mobileca1.R;
 
 import java.util.LinkedList;
@@ -19,25 +30,33 @@ import java.util.LinkedList;
 public class PlaceListAdapter extends
         RecyclerView.Adapter<PlaceListAdapter.PlaceViewHolder> {
 
+    private final String TAG = "DEBUG " + this.getClass().getSimpleName();
+
     private final LinkedList<Place> mPlaceList;
     private final LayoutInflater mInflater;
 
+    /* Places member variables */
+    private PlacesClient mPlacesClient;
+
     class PlaceViewHolder extends RecyclerView.ViewHolder
             implements View.OnClickListener {
-        public final TextView placeItemView;
+
+        public final TextView placeNameView;
+        public final TextView placeAddressView;
+        public final ImageView placeImageView;
+
         final PlaceListAdapter mAdapter;
 
         /**
          * Creates a new custom view holder to hold the view to display in
          * the RecyclerView.
-         *
-         * @param itemView The view in which to display the data.
-         * @param adapter The adapter that manages the the data and views
-         *                for the RecyclerView.
          */
         public PlaceViewHolder(View itemView, PlaceListAdapter adapter) {
             super(itemView);
-            placeItemView = itemView.findViewById(R.id.place);
+            placeNameView = itemView.findViewById(R.id.placeName);
+            placeAddressView = itemView.findViewById(R.id.placeAddress);
+            placeImageView = itemView.findViewById(R.id.placeImage);
+
             this.mAdapter = adapter;
             itemView.setOnClickListener(this);
         }
@@ -61,26 +80,14 @@ public class PlaceListAdapter extends
     public PlaceListAdapter(Context context, LinkedList<Place> placeList) {
         mInflater = LayoutInflater.from(context);
         this.mPlaceList = placeList;
+
+        mPlacesClient = Places.createClient(context);
     }
 
     /**
      * Called when RecyclerView needs a new ViewHolder of the given type to
      * represent an item.
      *
-     * This new ViewHolder should be constructed with a new View that can
-     * represent the items of the given type. You can either create a new View
-     * manually or inflate it from an XML layout file.
-     *
-     * The new ViewHolder will be used to display items of the adapter using
-     * onBindViewHolder(ViewHolder, int, List). Since it will be reused to
-     * display different items in the data set, it is a good idea to cache
-     * references to sub views of the View to avoid unnecessary findViewById()
-     * calls.
-     *
-     * @param parent   The ViewGroup into which the new View will be added after
-     *                 it is bound to an adapter position.
-     * @param viewType The view type of the new View. @return A new ViewHolder
-     *                 that holds a View of the given view type.
      */
     @Override
     public PlaceListAdapter.PlaceViewHolder onCreateViewHolder(ViewGroup parent,
@@ -91,23 +98,42 @@ public class PlaceListAdapter extends
         return new PlaceViewHolder(mItemView, this);
     }
 
-    /**
-     * Called by RecyclerView to display the data at the specified position.
-     * This method should update the contents of the ViewHolder.itemView to
-     * reflect the item at the given position.
-     *
-     * @param holder   The ViewHolder which should be updated to represent
-     *                 the contents of the item at the given position in the
-     *                 data set.
-     * @param position The position of the item within the adapter's data set.
-     */
     @Override
-    public void onBindViewHolder(PlaceViewHolder holder,
+    public void onBindViewHolder(final PlaceViewHolder  holder,
                                  int position) {
         // Retrieve the data for that position.
         Place mCurrent = mPlaceList.get(position);
         // Add the data to the view holder.
-        holder.placeItemView.setText(mCurrent.getName());
+        holder.placeNameView.setText(mCurrent.getName());
+        holder.placeAddressView.setText(mCurrent.getAddress());
+
+        if (mCurrent.getPhotoMetadatas() == null) {
+            holder.placeImageView.setImageResource(R.drawable.comingsoon);
+        } else {
+            // Create a FetchPhotoRequest.
+            FetchPhotoRequest photoRequest = FetchPhotoRequest.builder(mCurrent.getPhotoMetadatas().get(0))
+                    .setMaxWidth(500) // Optional.
+                    .setMaxHeight(300) // Optional.
+                    .build();
+            mPlacesClient.fetchPhoto(photoRequest).addOnSuccessListener(new OnSuccessListener<FetchPhotoResponse>() {
+                @Override
+                public void onSuccess(FetchPhotoResponse fetchPhotoResponse) {
+                    Bitmap bitmap = fetchPhotoResponse.getBitmap();
+                    Log.d(TAG, "SETTING IMAGE");
+                    holder.placeImageView.setImageBitmap(bitmap);
+                }
+            }).addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(@NonNull Exception exception) {
+                    if (exception instanceof ApiException) {
+                        ApiException apiException = (ApiException) exception;
+                        int statusCode = apiException.getStatusCode();
+                        // Handle error with given status code.
+                        Log.e(TAG, "Place not found: " + exception.getMessage());
+                    }
+                }
+            });
+        }
     }
 
     /**

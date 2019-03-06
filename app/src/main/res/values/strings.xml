@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Mobile CA1</string>
+    <string name="app_name">KaneRoy Enterprise</string>
     <string name="action_settings">Settings</string>
     <string name="title_activity_maps">Jobs Area</string>
     <string name="normal_map">Normal Map</string>
@@ -13,5 +13,5 @@
     <string name="service_not_available">Service not available</string>
     <string name="invalid_lat_long_used">Invalid coordinates used</string>
     <string name="sign_out_button">Sign Out</string>
-    <string name="title_activity_nearby_places">NearbyPlacesActivity</string>
+    <string name="title_activity_nearby_places">Nearby Places</string>
 </resources>

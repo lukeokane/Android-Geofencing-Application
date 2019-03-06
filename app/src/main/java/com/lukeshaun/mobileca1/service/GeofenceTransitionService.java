@@ -50,7 +50,7 @@ public class GeofenceTransitionService extends Service {
         // Oreo requires notifications to be grouped by a channel id via NotificationChannel
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             String NOTIFICATION_CHANNEL_ID = "com.lukeshaun.mobileca1";
-            String channelName = "Construction Company App";
+            String channelName = "KaneRoy Enterprise";
             NotificationChannel chan = new NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE);
             chan.setLightColor(Color.BLUE);
             NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -63,7 +63,7 @@ public class GeofenceTransitionService extends Service {
             NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID);
             Notification notification = notificationBuilder.setOngoing(true)
                     .setSmallIcon(R.drawable.ic_launcher_foreground)
-                    .setContentTitle("Construction Company App is running in the background...")
+                    .setContentTitle("KaneRoy Enterprise: is running in the background...")
                     .setPriority(NotificationManager.IMPORTANCE_MIN)
                     .setCategory(Notification.CATEGORY_SERVICE)
                     .setContentIntent(pendingIntent)
