@@ -63,6 +63,7 @@ import com.lukeshaun.mobileca1.utility.MapUtility;
 import com.lukeshaun.mobileca1.Adapter.InfoWindowAdapter;
 
 import java.security.InvalidParameterException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -80,7 +81,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Map<String, Circle> mDrawnGeofences;
     private Boolean mIsClockedIn = false;
     private Marker mMarker;
-    private ImageView mNearbyPlacesButton;
 
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
@@ -126,44 +126,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Click in and out button
         mClockInOutButton = findViewById(R.id.clockInOutButton);
         mClockInOutButton.setVisibility(View.INVISIBLE);
-        mClockInOutButton.setOnClickListener(new View.OnClickListener() {
-
-            public void onClick(View view) {
-
-                // Get records collection
-                CollectionReference records = mFirestore.collection("records");
-
-                // If clocked out, then clock in
-                if (!mIsClockedIn) {
-                    // Add record of clock in
-                    records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
-                    MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
-
-                    // Set clock out style
-                    mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockOutColor));
-                    mClockInOutButton.setText(R.string.clock_out);
-                }
-                // If clocked in, then clock out.
-                else if (mIsClockedIn) {
-                    // Add record of clock out
-                    records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
-                    MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
-
-                    // If user clocked out while not in the geofence, hide button.
-                    if (!mInGeofence) {
-                        mClockInOutButton.setVisibility(View.INVISIBLE);
-                    }
-
-                    // Set clock in style
-                    mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
-                    mClockInOutButton.setText(R.string.clock_in);
-
-                }
-
-                // Change boolean value
-                mIsClockedIn = !mIsClockedIn;
-            }
-        });
+        mClockInOutButton.setOnClickListener(clockInOutListener);
 
         Intent intent = new Intent(this, GeofenceTransitionService.class);
         startService(intent);
@@ -197,9 +160,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Build a GoogleSignInClient with the options specified by gso.
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
-        mNearbyPlacesButton = findViewById(R.id.nearbyPlacesButton);
+        ImageView mNearbyPlacesButton = findViewById(R.id.nearbyPlacesButton);
         mNearbyPlacesButton.setOnClickListener(nearbyPlacesListener);
-
     }
 
     @Override
@@ -381,7 +343,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 Log.w(TAG, "GEOFENCE_NOT_AVAILABLE error on adding geofences");
                             }
                             else {
-                                Log.d(TAG, "Geofence adding failed: " + e.getStackTrace().toString());
+                                Log.d(TAG, "Geofence adding failed: " + Arrays.toString(e.getStackTrace()));
                             }
                         }
                     });
@@ -480,7 +442,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     // If clocked in and re-entering the geofence, save "ENTERED" geofence record.
                     // This will indicate a user is clocked in and has re-entered the site after leaving it.
-                    if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
                         // Save record
                         CollectionReference records = mFirestore.collection("records");
                         records.add(new Record(null, Record.GEOFENCE_ENTER, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
@@ -507,7 +469,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     // If clocked in and leaving the geofence, save "EXITED" geofence record.
                     // This will indicate a user is clocked in and has re-entered the site after leaving it.
-                    if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
                         // Save record
                         CollectionReference records = mFirestore.collection("records");
                         records.add(new Record(null, Record.GEOFENCE_EXIT, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
@@ -529,25 +491,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     };
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (mIsClockedIn == true) {
-            // Save record
-            CollectionReference records = mFirestore.collection("records");
-            records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
-        }
-
-        Intent intent = new Intent(this, GeofenceTransitionService.class);
-        stopService(intent);
-    }
-
     private void initFirebase() {
         mFirestore = FirebaseFirestore.getInstance();
     }
 
     private ImageView.OnClickListener nearbyPlacesListener = new ImageView.OnClickListener() {
-
 
         @Override
         public void onClick(View v) {
@@ -570,4 +518,59 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             isNSBound = false;
         }
     };
+
+    private View.OnClickListener clockInOutListener = new View.OnClickListener() {
+
+        public void onClick(View view) {
+
+            // Get records collection
+            CollectionReference records = mFirestore.collection("records");
+
+            // If clocked out, then clock in
+            if (!mIsClockedIn) {
+                // Add record of clock in
+                records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
+                MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
+
+                // Set clock out style
+                mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockOutColor));
+                mClockInOutButton.setText(R.string.clock_out);
+            }
+            // If clocked in, then clock out.
+            else {
+                // Add record of clock out
+                records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
+                MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
+
+                // If user clocked out while not in the geofence, hide button.
+                if (!mInGeofence) {
+                    mClockInOutButton.setVisibility(View.INVISIBLE);
+                }
+
+                // Set clock in style
+                mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
+                mClockInOutButton.setText(R.string.clock_in);
+
+            }
+
+            // Change boolean value
+            mIsClockedIn = !mIsClockedIn;
+        }
+    };
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (isNSBound) {
+            unbindService(notificationConnection);
+            isNSBound = false;
+        }
+        if (mIsClockedIn) {
+            // Save record
+            CollectionReference records = mFirestore.collection("records");
+            records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
+        }
+        Intent intent = new Intent(this, GeofenceTransitionService.class);
+        stopService(intent);
+    }
 }
