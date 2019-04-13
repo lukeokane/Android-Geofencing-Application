@@ -316,12 +316,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         location.setLatitude(circle.getCenter().latitude);
                         location.setLongitude(circle.getCenter().longitude);
 
-                        // Create text to add to info window.
-                        String snippet = String.format(Locale.getDefault(),
-                                getString(R.string.loading),
-                                circle.getCenter().latitude,
-                                circle.getCenter().longitude);
-
                         // Create an invisible mMarker with 0x0, needed to display information window at circle.
                         mMarker = map.addMarker(new MarkerOptions()
                                 .alpha(0)
@@ -567,43 +561,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         intent.putExtra("title", title);
         intent.putExtra("message", message);
         startService(intent);
-    }
-
-    private void findCurrentPlace() {
-
-        // Use fields to define the data types to return.
-        List<Place.Field> placeFields = Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.PHOTO_METADATAS);
-
-// Use the builder to create a FindCurrentPlaceRequest.
-        FindCurrentPlaceRequest request =
-                FindCurrentPlaceRequest.builder(placeFields).build();
-
-// Call findCurrentPlace and handle the response (first check that the user has granted permission).
-        if (ContextCompat.checkSelfPermission(this, ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            Task<FindCurrentPlaceResponse> placeResponse = mPlacesClient.findCurrentPlace(request);
-            placeResponse.addOnCompleteListener(new OnCompleteListener<FindCurrentPlaceResponse>() {
-                @Override
-                public void onComplete(@NonNull Task<FindCurrentPlaceResponse> task) {
-                    if (task.isSuccessful()) {
-                        FindCurrentPlaceResponse response = task.getResult();
-                        for (PlaceLikelihood placeLikelihood : response.getPlaceLikelihoods()) {
-                            Log.i(TAG, String.format("Place '%s' has likelihood: %f",
-                                    placeLikelihood.getPlace().getName(),
-                                    placeLikelihood.getLikelihood()));
-                        }
-                    } else {
-                        Exception exception = task.getException();
-                        if (exception instanceof ApiException) {
-                            ApiException apiException = (ApiException) exception;
-                            Log.e(TAG, "Place not found: " + apiException.getStatusCode());
-                        }
-                    }
-                }
-            });
-        } else {
-            enableLocationTracking();
-        }
-
     }
 
     private ImageView.OnClickListener nearbyPlacesListener = new ImageView.OnClickListener() {
