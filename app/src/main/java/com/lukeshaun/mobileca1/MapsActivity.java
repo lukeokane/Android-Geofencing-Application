@@ -30,7 +30,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
@@ -52,11 +51,6 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.api.model.PlaceLikelihood;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
-import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -67,14 +61,11 @@ import com.lukeshaun.mobileca1.service.NotificationService;
 import com.lukeshaun.mobileca1.service.NotificationService.NotificationBinder;
 import com.lukeshaun.mobileca1.utility.MapUtility;
 import com.lukeshaun.mobileca1.Adapter.InfoWindowAdapter;
-import com.google.android.libraries.places.api.Places;
 
 import java.security.InvalidParameterException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
@@ -119,9 +110,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /* User Information variables */
     private FirebaseAuth mAuth;
     private GoogleSignInClient mGoogleSignInClient;
-
-    /* Places member variables */
-    private PlacesClient mPlacesClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -209,17 +197,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Build a GoogleSignInClient with the options specified by gso.
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
-
-
-        // Initialize Places.
-        Places.initialize(getApplicationContext(), getResources().getString(R.string.google_api_key));
-
-
         mNearbyPlacesButton = findViewById(R.id.nearbyPlacesButton);
         mNearbyPlacesButton.setOnClickListener(nearbyPlacesListener);
-        // Create a new Places client instance.
-        mPlacesClient = Places.createClient(this);
-
 
     }
 

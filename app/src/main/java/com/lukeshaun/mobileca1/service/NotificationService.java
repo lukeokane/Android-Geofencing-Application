@@ -1,6 +1,5 @@
 package com.lukeshaun.mobileca1.service;
 
-import android.app.IntentService;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
