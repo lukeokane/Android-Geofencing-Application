@@ -84,11 +84,11 @@ public class NotificationService extends Service {
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setWhen(System.currentTimeMillis())
                 .setColor(Color.BLUE)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.drawable.notification)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentInfo("Info");
 
-        notificationManager.notify(new Random().nextInt(), notificationBuilder.build());
+        notificationManager.notify(0, notificationBuilder.build());
     }
 
     public class NotificationBinder extends Binder {
