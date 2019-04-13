@@ -4,9 +4,11 @@ import android.app.IntentService;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
@@ -18,25 +20,19 @@ import com.lukeshaun.mobileca1.R;
 import java.util.Random;
 
 
-public class NotificationService extends IntentService {
+public class NotificationService extends Service {
 
     private final String TAG = "DEBUG " + this.getClass().getSimpleName();
 
     private static final String NOTIFICATION_ID = "com.lukeshaun.mobileca1.service.notificationservice";
 
-    public NotificationService() {super(NOTIFICATION_ID);}
+    private final IBinder mBinder = new NotificationBinder();
+
+    public NotificationService() {}
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    @Override
-    protected void onHandleIntent(Intent intent) {
-        String title = intent.getStringExtra("title");
-        String message = intent.getStringExtra("message");
-
-        sendNotification(title, message);
+        return mBinder;
     }
 
     /**
@@ -44,7 +40,7 @@ public class NotificationService extends IntentService {
      * @param title title to appear on notification
      * @param message message to appear on notification
      */
-    private void sendNotification(String title, String message) {
+    public void sendNotification(String title, String message) {
 
         Log.d(TAG, "Sending notification with title '" + title + "'");
 
@@ -94,5 +90,9 @@ public class NotificationService extends IntentService {
                 .setContentInfo("Info");
 
         notificationManager.notify(new Random().nextInt(), notificationBuilder.build());
+    }
+
+    public class NotificationBinder extends Binder {
+        public NotificationService getService() { return NotificationService.this; }
     }
 }

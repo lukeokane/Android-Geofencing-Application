@@ -2,12 +2,15 @@ package com.lukeshaun.mobileca1;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -61,6 +64,7 @@ import com.lukeshaun.mobileca1.AsyncTask.AddressTask;
 import com.lukeshaun.mobileca1.classes.Record;
 import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
 import com.lukeshaun.mobileca1.service.NotificationService;
+import com.lukeshaun.mobileca1.service.NotificationService.NotificationBinder;
 import com.lukeshaun.mobileca1.utility.MapUtility;
 import com.lukeshaun.mobileca1.Adapter.InfoWindowAdapter;
 import com.google.android.libraries.places.api.Places;
@@ -97,6 +101,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Geofence mCurrentGeofence;
     private boolean mInGeofence;
 
+    /* Notification member variables */
+    private NotificationService mNotificationService;
+    private boolean isNSBound;
+
     /* Location member variables */
     private FusedLocationProviderClient mFusedLocationClient;
     private LocationCallback mLocationCallback;
@@ -124,6 +132,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
 
+        // Local Bound Service
+        bindService(new Intent(this, NotificationService.class), notificationConnection, Context.BIND_AUTO_CREATE);
+
+        // Click in and out button
         mClockInOutButton = findViewById(R.id.clockInOutButton);
         mClockInOutButton.setVisibility(View.INVISIBLE);
         mClockInOutButton.setOnClickListener(new View.OnClickListener() {
@@ -497,8 +509,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Update geofence to green
                         MapUtility.setGeofenceGreen(drawnGeofence);
 
-                        sendMessage("Re-entered the site", "You left the site and are now back");
-
+                        mNotificationService.sendNotification("Re-entered the site", "You left the site and are now back");
                     }
                     else {
 
@@ -525,7 +536,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Update geofence to green
                         MapUtility.setGeofenceRed(drawnGeofence);
 
-                        sendMessage("Leaving site while clocked in", "WARNING: you are now outside of the site while clocked in.");
+                        mNotificationService.sendNotification("Leaving site while clocked in", "WARNING: you are now outside of the site while clocked in.");
                     }
                     else {
                         // No longer required to be in a geofence, remove geofence
@@ -556,13 +567,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mFirestore = FirebaseFirestore.getInstance();
     }
 
-    private void sendMessage(String title, String message) {
-        Intent intent = new Intent(this, NotificationService.class);
-        intent.putExtra("title", title);
-        intent.putExtra("message", message);
-        startService(intent);
-    }
-
     private ImageView.OnClickListener nearbyPlacesListener = new ImageView.OnClickListener() {
 
 
@@ -570,6 +574,21 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         public void onClick(View v) {
             Intent nearbyPlacesIntent = new Intent(getApplicationContext(), NearbyPlacesActivity.class);
             startActivity(nearbyPlacesIntent);
+        }
+    };
+
+    private ServiceConnection notificationConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            NotificationBinder binder = (NotificationBinder) service;
+            mNotificationService = binder.getService();
+            isNSBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            isNSBound = false;
         }
     };
 }
