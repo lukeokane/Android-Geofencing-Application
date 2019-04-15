@@ -18,6 +18,7 @@ import android.util.Log;
 
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingEvent;
+import com.lukeshaun.mobileca1.BuildConfig;
 import com.lukeshaun.mobileca1.MapsActivity;
 import com.lukeshaun.mobileca1.R;
 
@@ -27,7 +28,8 @@ public class GeofenceTransitionService extends Service {
 
     private final String TAG = "DEBUG " + this.getClass().getSimpleName();
 
-
+    private static final String GEOFENCE_TRANSITION_BROADCAST =
+            BuildConfig.APPLICATION_ID + ".GEOFENCE_TRANSITION_BROADCAST";
 
     public GeofenceTransitionService() {}
 
@@ -90,7 +92,6 @@ public class GeofenceTransitionService extends Service {
         super.onDestroy();
     }
 
-    // Not needed since we have no BoundService objects binding to this service.
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -128,14 +129,14 @@ public class GeofenceTransitionService extends Service {
     }
 
     /**
-     * Broadcast the change for acitivities to update their UI
+     * Broadcast the change for activities to update their UI
      * @param geofence the geofence that the transition occurred in
      * @param transition the transition type
      */
     private void broadcastGeofenceTransitionEvent(Geofence geofence, int transition) {
         Log.d(TAG, "Broadcasting geofence transition event, transition ID: " + transition + ", geofence: " + geofence.getRequestId());
         // Create intent to pass into broadcast manager
-        Intent intent = new Intent("GeofenceTransitionEvent");
+        Intent intent = new Intent(GEOFENCE_TRANSITION_BROADCAST);
 
         // Pass Geofence and it's transition in the broadcast
         Bundle bundle = new Bundle();

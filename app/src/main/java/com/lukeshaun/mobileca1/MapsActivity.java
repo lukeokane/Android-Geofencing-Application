@@ -88,11 +88,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /* Geofencing member variables */
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent;
-    private static final String GEOFENCE_TRANSITION_EVENT_BROADCAST = "GeofenceTransitionEvent";
+    private static final String GEOFENCE_TRANSITION_BROADCAST =
+            BuildConfig.APPLICATION_ID + ".GEOFENCE_TRANSITION_BROADCAST";
+
     private Geofence mCurrentGeofence;
     private boolean mInGeofence;
 
     /* Notification member variables */
+    private LocationBroadcastReceiver mLocationBroadcastReceiver = new LocationBroadcastReceiver();
     private NotificationService mNotificationService;
     private boolean isNSBound;
 
@@ -123,6 +126,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Local Bound Service
         bindService(new Intent(this, NotificationService.class), notificationConnection, Context.BIND_AUTO_CREATE);
 
+        // Register receiver with LocalBroadcastManager.
+        LocalBroadcastManager.getInstance(this).registerReceiver(mLocationBroadcastReceiver, new IntentFilter(GEOFENCE_TRANSITION_BROADCAST));
+
         // Click in and out button
         mClockInOutButton = findViewById(R.id.clockInOutButton);
         mClockInOutButton.setVisibility(View.INVISIBLE);
@@ -132,9 +138,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         startService(intent);
 
         initFirebase();
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-                mMessageReceiver, new IntentFilter("GeofenceTransitionEvent"));
 
         // Initialize the FusedLocationClient.
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(
@@ -417,80 +420,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         return mGeofencePendingIntent;
     }
 
-    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            // Check broadcast is from GeofenceTransitionService
-            if (intent.getAction() == GEOFENCE_TRANSITION_EVENT_BROADCAST) {
-                Log.d(TAG, "Received broadcast from " + GEOFENCE_TRANSITION_EVENT_BROADCAST);
-
-                // Get Geofence and Geofence event information
-                Bundle bundle = intent.getBundleExtra("Geofence");
-                Geofence geofence = bundle.getParcelable("Geofence");
-                int geofenceEvent = intent.getIntExtra("GeofenceTransition", -1);
-
-                // Error occurred when parsing the integer in the Intent
-                if (geofenceEvent == -1)
-                {
-                    throw new InvalidParameterException("GeofenceTransition in Intent used default value");
-                }
-
-                Circle drawnGeofence = mDrawnGeofences.get(geofence.getRequestId());
-
-                // Device entered a geofence
-                if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_ENTER) {
-
-                    // If clocked in and re-entering the geofence, save "ENTERED" geofence record.
-                    // This will indicate a user is clocked in and has re-entered the site after leaving it.
-                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
-                        // Save record
-                        CollectionReference records = mFirestore.collection("records");
-                        records.add(new Record(null, Record.GEOFENCE_ENTER, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
-
-                        // Update geofence to green
-                        MapUtility.setGeofenceGreen(drawnGeofence);
-
-                        mNotificationService.sendNotification("Re-entered the site", "You left the site and are now back");
-                    }
-                    else {
-
-                        // Hide clock out button
-                        mClockInOutButton.setVisibility(View.VISIBLE);
-                        mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
-                        mClockInOutButton.setText(R.string.clock_in);
-
-                        // Set the geofence the device is in
-                        mCurrentGeofence = geofence;
-                    }
-
-                    mInGeofence = true;
-                }
-                else if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_EXIT) {
-
-                    // If clocked in and leaving the geofence, save "EXITED" geofence record.
-                    // This will indicate a user is clocked in and has re-entered the site after leaving it.
-                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
-                        // Save record
-                        CollectionReference records = mFirestore.collection("records");
-                        records.add(new Record(null, Record.GEOFENCE_EXIT, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
-
-                        // Update geofence to green
-                        MapUtility.setGeofenceRed(drawnGeofence);
-
-                        mNotificationService.sendNotification("Leaving site while clocked in", "WARNING: you are now outside of the site while clocked in.");
-                    }
-                    else {
-                        // No longer required to be in a geofence, remove geofence
-                        mCurrentGeofence = null;
-                        mClockInOutButton.setVisibility(View.INVISIBLE);
-                    }
-
-                    mInGeofence = false;
-                }
-            }
-        }
-    };
-
     private void initFirebase() {
         mFirestore = FirebaseFirestore.getInstance();
     }
@@ -572,5 +501,80 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         Intent intent = new Intent(this, GeofenceTransitionService.class);
         stopService(intent);
+    }
+
+    class LocationBroadcastReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Check broadcast is from GeofenceTransitionService
+            if (intent.getAction() == GEOFENCE_TRANSITION_BROADCAST) {
+                Log.d(TAG, "Received broadcast from " + GEOFENCE_TRANSITION_BROADCAST);
+
+                // Get Geofence and Geofence event information
+                Bundle bundle = intent.getBundleExtra("Geofence");
+                Geofence geofence = bundle.getParcelable("Geofence");
+                int geofenceEvent = intent.getIntExtra("GeofenceTransition", -1);
+
+                // Error occurred when parsing the integer in the Intent
+                if (geofenceEvent == -1)
+                {
+                    throw new InvalidParameterException("GeofenceTransition in Intent used default value");
+                }
+
+                Circle drawnGeofence = mDrawnGeofences.get(geofence.getRequestId());
+
+                // Device entered a geofence
+                if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_ENTER) {
+
+                    // If clocked in and re-entering the geofence, save "ENTERED" geofence record.
+                    // This will indicate a user is clocked in and has re-entered the site after leaving it.
+                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                        // Save record
+                        CollectionReference records = mFirestore.collection("records");
+                        records.add(new Record(null, Record.GEOFENCE_ENTER, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
+
+                        // Update geofence to green
+                        MapUtility.setGeofenceGreen(drawnGeofence);
+
+                        mNotificationService.sendNotification("Re-entered the site", "You left the site and are now back");
+                    }
+                    else {
+
+                        // Hide clock out button
+                        mClockInOutButton.setVisibility(View.VISIBLE);
+                        mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
+                        mClockInOutButton.setText(R.string.clock_in);
+
+                        // Set the geofence the device is in
+                        mCurrentGeofence = geofence;
+                    }
+
+                    mInGeofence = true;
+                }
+                else if (geofenceEvent == Geofence.GEOFENCE_TRANSITION_EXIT) {
+
+                    // If clocked in and leaving the geofence, save "EXITED" geofence record.
+                    // This will indicate a user is clocked in and has re-entered the site after leaving it.
+                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                        // Save record
+                        CollectionReference records = mFirestore.collection("records");
+                        records.add(new Record(null, Record.GEOFENCE_EXIT, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
+
+                        // Update geofence to green
+                        MapUtility.setGeofenceRed(drawnGeofence);
+
+                        mNotificationService.sendNotification("Leaving site while clocked in", "WARNING: you are now outside of the site while clocked in.");
+                    }
+                    else {
+                        // No longer required to be in a geofence, remove geofence
+                        mCurrentGeofence = null;
+                        mClockInOutButton.setVisibility(View.INVISIBLE);
+                    }
+
+                    mInGeofence = false;
+                }
+            }
+        }
     }
 }
