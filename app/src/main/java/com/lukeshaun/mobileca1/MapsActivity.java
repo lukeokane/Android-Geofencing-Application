@@ -1,22 +1,29 @@
 package com.lukeshaun.mobileca1;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -90,9 +97,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private PendingIntent mGeofencePendingIntent;
     private static final String GEOFENCE_TRANSITION_BROADCAST =
             BuildConfig.APPLICATION_ID + ".GEOFENCE_TRANSITION_BROADCAST";
-
     private Geofence mCurrentGeofence;
     private boolean mInGeofence;
+    private List<Geofence> mGeofenceList;
 
     /* Notification member variables */
     private LocationBroadcastReceiver mLocationBroadcastReceiver = new LocationBroadcastReceiver();
@@ -109,6 +116,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     /* UI member variables */
     private Button mClockInOutButton;
+    private Dialog mGPSRequiredDialog;
 
     /* User Information variables */
     private FirebaseAuth mAuth;
@@ -128,6 +136,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         // Register receiver with LocalBroadcastManager.
         LocalBroadcastManager.getInstance(this).registerReceiver(mLocationBroadcastReceiver, new IntentFilter(GEOFENCE_TRANSITION_BROADCAST));
+
+        // Specify type of intent a component can receive.
+        // filter based on Intent values such as action and category.
+        // Register the receiver using the activity context.
+        this.registerReceiver(mLocationBroadcastReceiver, new IntentFilter(LocationManager.MODE_CHANGED_ACTION));
+
 
         // Click in and out button
         mClockInOutButton = findViewById(R.id.clockInOutButton);
@@ -178,10 +192,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (response != ConnectionResult.SUCCESS) {
             Log.d(TAG, "Google Play Services not available - prompt user to download it");
             GoogleApiAvailability.getInstance().getErrorDialog(this, response, 1).show();
+            return;
         }
         else {
             Log.d(TAG, "Google Play Services is installed");
         }
+
     }
 
     @Override
@@ -289,6 +305,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void createMockGeofences() {
+
         // Add a mMarker to DkIT and move the camera
         LatLng dkit = new LatLng(53.984981, -6.393973);
         LatLng crownPlaza = new LatLng(53.980856, -6.38913);
@@ -311,49 +328,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         // Group a list of geofences to be monitored and customize how each geofence notifications should be reported
         // In our case, they will all have the same initial trigger which occurs on entering the geofence.
-        List<Geofence> geofenceList = new LinkedList<>();
-        geofenceList.add(geofence1);
-        geofenceList.add(geofence2);
-        geofenceList.add(geofence3);
+        mGeofenceList = new LinkedList<>();
+        mGeofenceList.add(geofence1);
+        mGeofenceList.add(geofence2);
+        mGeofenceList.add(geofence3);
 
-        // Building a geofence request to be sent to the geofence client to begin monitoring.
-        // Monitoring will begin when the device enters the geofence
-        GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
-                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-                .addGeofences(geofenceList)
-                .build();
-
-        if (ContextCompat.checkSelfPermission(this,
-                ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-
-            // Sends a pending intent with a list of Geofence transitions to the GeofenceTransitionService when any occur.
-            mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent())
-                    // If error
-                    .addOnSuccessListener(this, new OnSuccessListener<Void>() {
-                        @Override
-                        public void onSuccess(Void aVoid) {
-                            Log.d(TAG, "Geofences Added");
-                        }
-                    })
-                    .addOnFailureListener(this, new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            // This error usually occurs when location access is turned off.
-                            // This error can also occur on an emulator when all location services (GPS / WiFi / Network) are turned on (my experience).
-                            // If running on an emulator, turn off all location services and turn back on again to prevent this emulator issue.
-                            if (e.getMessage().contains("1000")) {
-                                Log.w(TAG, "GEOFENCE_NOT_AVAILABLE error on adding geofences");
-                            }
-                            else {
-                                Log.d(TAG, "Geofence adding failed: " + Arrays.toString(e.getStackTrace()));
-                            }
-                        }
-                    });
-        }
-        else {
-            Log.d(TAG, "Geofences not added, no permission");
-        }
+        registerGeofences();
     }
 
     private void enableLocationTracking() {
@@ -373,8 +353,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     (MapUtility.createLocationRequest(), mLocationCallback,
                             null /* Looper */);
 
-            // Creating mock sites
-            createMockGeofences();
+            // Check if network location is enabled
+            if (isNetworkLocationActivated()) {
+                    createMockGeofences();
+            } else {
+            // If null, first time dialog has been called
+            Log.d(TAG, "Location not enabled, showing dialog");
+            if (mGPSRequiredDialog == null) {
+                mGPSRequiredDialog = gpsRequiredDialog(this);
+            }
+            mGPSRequiredDialog.show();
+
+        }
         }
         // If not then prompt user for permission
         else {
@@ -433,21 +423,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     };
 
-    private ServiceConnection notificationConnection = new ServiceConnection() {
-
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            NotificationBinder binder = (NotificationBinder) service;
-            mNotificationService = binder.getService();
-            isNSBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            isNSBound = false;
-        }
-    };
-
     private View.OnClickListener clockInOutListener = new View.OnClickListener() {
 
         public void onClick(View view) {
@@ -486,22 +461,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             mIsClockedIn = !mIsClockedIn;
         }
     };
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (isNSBound) {
-            unbindService(notificationConnection);
-            isNSBound = false;
-        }
-        if (mIsClockedIn) {
-            // Save record
-            CollectionReference records = mFirestore.collection("records");
-            records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
-        }
-        Intent intent = new Intent(this, GeofenceTransitionService.class);
-        stopService(intent);
-    }
 
     class LocationBroadcastReceiver extends BroadcastReceiver {
 
@@ -574,7 +533,133 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     mInGeofence = false;
                 }
+            } else if (intent.getAction() == LocationManager.MODE_CHANGED_ACTION) {
+                Log.d(TAG, "Received broadcast from " + LocationManager.MODE_CHANGED_ACTION);
+
+                // If network location activated, dismiss dialog
+                if (isNetworkLocationActivated()) {
+                    Log.d(TAG, "Location now enabled, dismissing dialog");
+                    mGPSRequiredDialog.dismiss();
+                    registerGeofences();
+                } else {
+                    // If null, first time dialog has been called
+                    Log.d(TAG, "Location not enabled, showing dialog");
+                    if (mGPSRequiredDialog == null) {
+                        mGPSRequiredDialog = gpsRequiredDialog(context);
+                    }
+                    mGPSRequiredDialog.show();
+                }
             }
         }
+    }
+
+    public AlertDialog gpsRequiredDialog(final Context activity) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        // Get the layout inflater
+        LayoutInflater inflater = this.getLayoutInflater();
+
+        // Inflate and set the layout for the dialog
+        // Pass null as the parent view because its going in the dialog layout
+        builder.setView(inflater.inflate(R.layout.gps_required, null));
+        builder.setPositiveButton("Turn on location...", null);
+
+        builder.setCancelable(false);
+
+        final AlertDialog alertDialog = builder.create();
+        alertDialog.setOnShowListener(new DialogInterface.OnShowListener() {
+
+            @Override
+            public void onShow(DialogInterface dialog) {
+
+                Button b = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+
+                b.setOnClickListener(new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View view) {
+                        activity.startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                    }
+                });
+            }
+        });
+
+        return alertDialog;
+    }
+
+    private boolean isNetworkLocationActivated() {
+        LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+        return locationManager.isLocationEnabled();
+    }
+
+    private void registerGeofences() {
+        // Building a geofence request to be sent to the geofence client to begin monitoring.
+        // Monitoring will begin when the device enters the geofence
+        GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
+                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                .addGeofences(mGeofenceList)
+                .build();
+
+        if (ContextCompat.checkSelfPermission(this,
+                ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+
+            // Sends a pending intent with a list of Geofence transitions to the GeofenceTransitionService when any occur.
+            mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent())
+                    // If error
+                    .addOnSuccessListener(this, new OnSuccessListener<Void>() {
+                        @Override
+                        public void onSuccess(Void aVoid) {
+                            Log.d(TAG, "Geofences Added");
+                        }
+                    })
+                    .addOnFailureListener(this, new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+                            // This error usually occurs when location access is turned off.
+                            // This error can also occur on an emulator when all location services (GPS / WiFi / Network) are turned on (my experience).
+                            // If running on an emulator, turn off all location services and turn back on again to prevent this emulator issue.
+                            if (e.getMessage().contains("1000")) {
+                                Log.w(TAG, "GEOFENCE_NOT_AVAILABLE error on adding geofences");
+                            }
+                            else {
+                                Log.d(TAG, "Geofence adding failed: " + Arrays.toString(e.getStackTrace()));
+                            }
+                        }
+                    });
+        }
+        else {
+            Log.d(TAG, "Geofences not added, no permission");
+        }
+    }
+
+    private ServiceConnection notificationConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            NotificationBinder binder = (NotificationBinder) service;
+            mNotificationService = binder.getService();
+            isNSBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            isNSBound = false;
+        }
+    };
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (isNSBound) {
+            unbindService(notificationConnection);
+            isNSBound = false;
+        }
+        if (mIsClockedIn) {
+            // Save record
+            CollectionReference records = mFirestore.collection("records");
+            records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
+        }
+        Intent intent = new Intent(this, GeofenceTransitionService.class);
+        stopService(intent);
     }
 }
