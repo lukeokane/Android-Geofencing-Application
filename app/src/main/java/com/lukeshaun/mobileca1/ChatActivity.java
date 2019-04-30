@@ -43,7 +43,8 @@ public class ChatActivity extends AppCompatActivity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case ChatService.MSG_SET_VALUE:
-                    mCallbackText.setText("Received from service: " + msg.arg1);
+                    Bundle bundle = (Bundle) msg.obj;
+                    mCallbackText.setText("Received from service: " + bundle.getString("message"));
                     break;
                 default:
                     super.handleMessage(msg);
@@ -51,14 +52,10 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Target we publish for clients to send messages to IncomingHandler.
-     */
+    // Send messages from service handler
     final Messenger mMessenger = new Messenger(new IncomingHandler());
 
-    /**
-     * Class for interacting with the main interface of the service.
-     */
+    // Interact with service
     private ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className,
                                        IBinder service) {
@@ -76,11 +73,6 @@ public class ChatActivity extends AppCompatActivity {
                 Message msg = Message.obtain(null,
                         ChatService.MSG_REGISTER_CLIENT);
                 msg.replyTo = mMessenger;
-                mService.send(msg);
-
-                // Give it some value as an example.
-                msg = Message.obtain(null,
-                        ChatService.MSG_SET_VALUE, this.hashCode(), 0);
                 mService.send(msg);
             } catch (RemoteException e) {
                 // In this case the service has crashed before we could even

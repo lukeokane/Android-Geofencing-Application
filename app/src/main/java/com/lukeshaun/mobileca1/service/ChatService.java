@@ -8,12 +8,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.support.v4.app.NotificationCompat;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.lukeshaun.mobileca1.MapsActivity;
@@ -22,12 +24,13 @@ import com.lukeshaun.mobileca1.R;
 import java.util.ArrayList;
 
 public class ChatService extends Service {
+
+    private final String TAG = "DEBUG " + this.getClass().getSimpleName();
+
     // Chat Service notification
     NotificationManager mNM;
     // Clients connected
     ArrayList<Messenger> mClients = new ArrayList<>();
-    /** Holds last value set by a client. */
-    int mValue = 0;
 
     // Allows inter process communication (IPC).
     // Clients target this Messenger to communicate with service.
@@ -56,16 +59,17 @@ public class ChatService extends Service {
             switch (msg.what) {
                 case MSG_REGISTER_CLIENT:
                     mClients.add(msg.replyTo);
+                    Log.d(TAG, "New client registered, " + mClients.size() + " client(s) in total registered.");
                     break;
                 case MSG_UNREGISTER_CLIENT:
                     mClients.remove(msg.replyTo);
+                    Log.d(TAG, "Unregistering client, " + mClients.size() + " client(s) now registered.");
                     break;
                 case MSG_SET_VALUE:
-                    mValue = msg.arg1;
                     for (int i = mClients.size() - 1; i >=0 ; i--) {
                         try {
                             mClients.get(i).send(Message.obtain(null,
-                                    MSG_SET_VALUE, mValue, 0));
+                                    MSG_SET_VALUE, 0, 0, msg.obj));
                         } catch (RemoteException e) {
                             // Client is no longer contactable.
                             mClients.remove(i);
