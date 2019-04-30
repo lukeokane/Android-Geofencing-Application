@@ -1,24 +1,15 @@
 package com.lukeshaun.mobileca1.service;
 
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
-import android.os.Build;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
-import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.lukeshaun.mobileca1.MapsActivity;
 import com.lukeshaun.mobileca1.R;
 
 import java.util.ArrayList;
@@ -27,8 +18,6 @@ public class ChatService extends Service {
 
     private final String TAG = "DEBUG " + this.getClass().getSimpleName();
 
-    // Chat Service notification
-    NotificationManager mNM;
     // Clients connected
     ArrayList<Messenger> mClients = new ArrayList<>();
 
@@ -84,77 +73,19 @@ public class ChatService extends Service {
 
     @Override
     public void onCreate() {
-        mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
 
-        // Display a notification about us starting.
-        showNotification();
     }
 
     @Override
     public void onDestroy() {
-        // Cancel the persistent notification.
-        mNM.cancel(R.string.remote_service_started);
 
         // Tell the user we stopped.
         Toast.makeText(this, R.string.remote_service_stopped, Toast.LENGTH_SHORT).show();
     }
 
-    /**
-     * When binding to the service, we return an interface to our messenger
-     * for sending messages to the service.
-     */
+    // Return interface for sending messages
     @Override
     public IBinder onBind(Intent intent) {
         return mMessenger.getBinder();
-    }
-
-    /**
-     * Show a notification while this service is running.
-     */
-    private void showNotification() {
-        String NOTIFICATION_ID = "com.lukeshaun.mobileca1.service.chatservice";
-
-        // The PendingIntent to launch our activity if the user selects this notification
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
-                new Intent(this, MapsActivity.class), 0);
-
-        // Get system's notification manager
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        // If SDK version is Oreo or greater, use NotificationChannel to style notifications.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_ID, "Notification",
-                    NotificationManager.IMPORTANCE_HIGH);
-
-            notificationChannel.setDescription("");
-            notificationChannel.enableLights(true);
-            notificationChannel.setShowBadge(true);
-            notificationChannel.setLightColor(Color.BLUE);
-            notificationChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000});
-            notificationChannel.enableLights(true);
-
-            notificationManager.createNotificationChannel(notificationChannel);
-        }
-
-        // Build notification
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_ID);
-
-        // Modify text and view of notification
-        notificationBuilder
-                .setChannelId(NOTIFICATION_ID)
-                .setContentTitle("Chat Service")
-                .setContentIntent(contentIntent)
-                .setContentText("chat service message")
-                .setAutoCancel(true)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
-                .setWhen(System.currentTimeMillis())
-                .setColor(Color.BLUE)
-                .setSmallIcon(R.drawable.notification)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setContentInfo("Info");
-
-        // Send the notification.
-        // We use a string id because it is a unique number.  We use it later to cancel.
-        mNM.notify(R.string.remote_service_started, notificationBuilder.build());
     }
 }

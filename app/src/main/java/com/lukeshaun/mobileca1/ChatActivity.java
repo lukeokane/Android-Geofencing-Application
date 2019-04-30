@@ -44,7 +44,9 @@ public class ChatActivity extends AppCompatActivity {
             switch (msg.what) {
                 case ChatService.MSG_SET_VALUE:
                     Bundle bundle = (Bundle) msg.obj;
-                    mCallbackText.setText("Received from service: " + bundle.getString("message"));
+                    String message = bundle.getString("message");
+
+                    mCallbackText.setText(message);
                     break;
                 default:
                     super.handleMessage(msg);
@@ -59,13 +61,9 @@ public class ChatActivity extends AppCompatActivity {
     private ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className,
                                        IBinder service) {
-            // This is called when the connection with the service has been
-            // established, giving us the service object we can use to
-            // interact with the service.  We are communicating with our
-            // service through an IDL interface, so get a client-side
-            // representation of that from the raw service object.
+            // Returns service to connect with.
             mService = new Messenger(service);
-            mCallbackText.setText("Attached.");
+            mCallbackText.setText("Awaiting message.");
 
             // We want to monitor the service for as long as we are
             // connected to it.
@@ -75,10 +73,7 @@ public class ChatActivity extends AppCompatActivity {
                 msg.replyTo = mMessenger;
                 mService.send(msg);
             } catch (RemoteException e) {
-                // In this case the service has crashed before we could even
-                // do anything with it; we can count on soon being
-                // disconnected (and then reconnected if it can be restarted)
-                // so there is no need to do anything here.
+                // Service crashed, nothing can be done here.
             }
 
             // As part of the sample, tell the user what happened.
@@ -100,13 +95,12 @@ public class ChatActivity extends AppCompatActivity {
 
     void doBindService() {
         Log.d(TAG,"Attempting to bind to chat service...");
-        // Establish a connection with the service.  We use an explicit
-        // class name because there is no reason to be able to let other
-        // applications replace our component.
+
+        // Establish connection
         bindService(new Intent(ChatActivity.this,
                 ChatService.class), mConnection, Context.BIND_AUTO_CREATE);
         mIsBound = true;
-        mCallbackText.setText("Binding.");
+        mCallbackText.setText("Connecting...");
     }
 
     void doUnbindService() {
