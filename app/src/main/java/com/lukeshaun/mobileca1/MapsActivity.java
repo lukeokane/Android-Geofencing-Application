@@ -1,6 +1,5 @@
 package com.lukeshaun.mobileca1;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.PendingIntent;
@@ -179,6 +178,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         ImageView mNearbyPlacesButton = findViewById(R.id.nearbyPlacesButton);
         mNearbyPlacesButton.setOnClickListener(nearbyPlacesListener);
+
+        ImageView chatButton = findViewById(R.id.chatButton);
+        chatButton.setOnClickListener(chatListener);
     }
 
     @Override
@@ -420,6 +422,15 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         public void onClick(View v) {
             Intent nearbyPlacesIntent = new Intent(getApplicationContext(), NearbyPlacesActivity.class);
             startActivity(nearbyPlacesIntent);
+        }
+    };
+
+    private ImageView.OnClickListener chatListener = new ImageView.OnClickListener() {
+
+        @Override
+        public void onClick(View v) {
+            Intent chatIntent = new Intent(getApplicationContext(), ChatActivity.class);
+            startActivity(chatIntent);
         }
     };
 

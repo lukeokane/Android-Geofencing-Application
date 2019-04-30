@@ -16,10 +16,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <activity android:name=".ChatActivity"></activity>
         <activity
             android:name=".NearbyPlacesActivity"
             android:label="@string/title_activity_nearby_places"
-            android:theme="@style/AppTheme.NoActionBar"></activity>
+            android:theme="@style/AppTheme.NoActionBar" />
 
         <uses-library
             android:name="org.apache.http.legacy"
@@ -34,6 +35,10 @@
 
         <service android:name=".service.GeofenceTransitionService" />
         <service android:name=".service.NotificationService" />
+        <service
+            android:name=".service.ChatService"
+            android:process=":remote"
+            android:exported="true"/>
 
         <activity
             android:name=".MainActivity"
@@ -47,7 +52,7 @@
         </activity>
         <activity
             android:name=".MapsActivity"
-            android:label="@string/title_activity_maps"></activity>
+            android:label="@string/title_activity_maps" />
     </application>
 
 </manifest>
