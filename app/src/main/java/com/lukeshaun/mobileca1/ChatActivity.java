@@ -20,17 +20,13 @@ import com.lukeshaun.mobileca1.service.ChatService;
 public class ChatActivity extends AppCompatActivity {
 
     private final String TAG = "DEBUG " + this.getClass().getSimpleName();
-    /**
-     * Messenger for communicating with service.
-     */
+
     Messenger mService = null;
-    /**
-     * Flag indicating whether we have called bind on the service.
-     */
+
+    // Check if service is bound
     boolean mIsBound;
-    /**
-     * Some text view we are using to show state information.
-     */
+
+    // Text information on bound service
     TextView mCallbackText;
 
     @Override
@@ -41,9 +37,7 @@ public class ChatActivity extends AppCompatActivity {
         doBindService();
     }
 
-    /**
-     * Handler of incoming messages from service.
-     */
+    // Handle incoming messages
     class IncomingHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {

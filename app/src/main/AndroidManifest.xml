@@ -37,7 +37,8 @@
         <service android:name=".service.NotificationService" />
         <service
             android:name=".service.ChatService"
-            android:process=":remote" />
+            android:process=":remote"
+            android:exported="true"/>
 
         <activity
             android:name=".MainActivity"
