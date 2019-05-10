@@ -1,19 +1,28 @@
 package com.lukeshaun.mobileca1;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -27,7 +36,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
@@ -49,11 +57,6 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.api.model.PlaceLikelihood;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
-import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -61,16 +64,15 @@ import com.lukeshaun.mobileca1.AsyncTask.AddressTask;
 import com.lukeshaun.mobileca1.classes.Record;
 import com.lukeshaun.mobileca1.service.GeofenceTransitionService;
 import com.lukeshaun.mobileca1.service.NotificationService;
+import com.lukeshaun.mobileca1.service.NotificationService.NotificationBinder;
 import com.lukeshaun.mobileca1.utility.MapUtility;
 import com.lukeshaun.mobileca1.Adapter.InfoWindowAdapter;
-import com.google.android.libraries.places.api.Places;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
@@ -85,7 +87,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Map<String, Circle> mDrawnGeofences;
     private Boolean mIsClockedIn = false;
     private Marker mMarker;
-    private ImageView mNearbyPlacesButton;
 
     // Identify location permission request when returned from onRequestPermissionsResult() method
     private static final int REQUEST_LOCATION_PERMISSION = 1;
@@ -93,9 +94,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /* Geofencing member variables */
     private GeofencingClient mGeofencingClient;
     private PendingIntent mGeofencePendingIntent;
-    private static final String GEOFENCE_TRANSITION_EVENT_BROADCAST = "GeofenceTransitionEvent";
+    private static final String GEOFENCE_TRANSITION_BROADCAST =
+            BuildConfig.APPLICATION_ID + ".GEOFENCE_TRANSITION_BROADCAST";
     private Geofence mCurrentGeofence;
     private boolean mInGeofence;
+    private List<Geofence> mGeofenceList;
+
+    /* Notification member variables */
+    private LocationBroadcastReceiver mLocationBroadcastReceiver = new LocationBroadcastReceiver();
+    private NotificationService mNotificationService;
+    private boolean isNSBound;
 
     /* Location member variables */
     private FusedLocationProviderClient mFusedLocationClient;
@@ -107,13 +115,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     /* UI member variables */
     private Button mClockInOutButton;
+    private Dialog mGPSRequiredDialog;
 
     /* User Information variables */
     private FirebaseAuth mAuth;
     private GoogleSignInClient mGoogleSignInClient;
-
-    /* Places member variables */
-    private PlacesClient mPlacesClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -124,54 +130,27 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
 
+        // Local Bound Service
+        bindService(new Intent(this, NotificationService.class), notificationConnection, Context.BIND_AUTO_CREATE);
+
+        // Register receiver with LocalBroadcastManager.
+        LocalBroadcastManager.getInstance(this).registerReceiver(mLocationBroadcastReceiver, new IntentFilter(GEOFENCE_TRANSITION_BROADCAST));
+
+        // Specify type of intent a component can receive.
+        // filter based on Intent values such as action and category.
+        // Register the receiver using the activity context.
+        this.registerReceiver(mLocationBroadcastReceiver, new IntentFilter(LocationManager.MODE_CHANGED_ACTION));
+
+
+        // Click in and out button
         mClockInOutButton = findViewById(R.id.clockInOutButton);
         mClockInOutButton.setVisibility(View.INVISIBLE);
-        mClockInOutButton.setOnClickListener(new View.OnClickListener() {
-
-            public void onClick(View view) {
-
-                // Get records collection
-                CollectionReference records = mFirestore.collection("records");
-
-                // If clocked out, then clock in
-                if (!mIsClockedIn) {
-                    // Add record of clock in
-                    records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
-                    MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
-
-                    // Set clock out style
-                    mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockOutColor));
-                    mClockInOutButton.setText(R.string.clock_out);
-                }
-                // If clocked in, then clock out.
-                else if (mIsClockedIn) {
-                    // Add record of clock out
-                    records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
-                    MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
-
-                    // If user clocked out while not in the geofence, hide button.
-                    if (!mInGeofence) {
-                        mClockInOutButton.setVisibility(View.INVISIBLE);
-                    }
-
-                    // Set clock in style
-                    mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
-                    mClockInOutButton.setText(R.string.clock_in);
-
-                }
-
-                // Change boolean value
-                mIsClockedIn = !mIsClockedIn;
-            }
-        });
+        mClockInOutButton.setOnClickListener(clockInOutListener);
 
         Intent intent = new Intent(this, GeofenceTransitionService.class);
         startService(intent);
 
         initFirebase();
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-                mMessageReceiver, new IntentFilter("GeofenceTransitionEvent"));
 
         // Initialize the FusedLocationClient.
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(
@@ -197,18 +176,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Build a GoogleSignInClient with the options specified by gso.
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
-
-
-        // Initialize Places.
-        Places.initialize(getApplicationContext(), getResources().getString(R.string.google_api_key));
-
-
-        mNearbyPlacesButton = findViewById(R.id.nearbyPlacesButton);
+        ImageView mNearbyPlacesButton = findViewById(R.id.nearbyPlacesButton);
         mNearbyPlacesButton.setOnClickListener(nearbyPlacesListener);
-        // Create a new Places client instance.
-        mPlacesClient = Places.createClient(this);
 
-
+        ImageView chatButton = findViewById(R.id.chatButton);
+        chatButton.setOnClickListener(chatListener);
     }
 
     @Override
@@ -222,10 +194,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (response != ConnectionResult.SUCCESS) {
             Log.d(TAG, "Google Play Services not available - prompt user to download it");
             GoogleApiAvailability.getInstance().getErrorDialog(this, response, 1).show();
+            return;
         }
         else {
             Log.d(TAG, "Google Play Services is installed");
         }
+
     }
 
     @Override
@@ -316,12 +290,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         location.setLatitude(circle.getCenter().latitude);
                         location.setLongitude(circle.getCenter().longitude);
 
-                        // Create text to add to info window.
-                        String snippet = String.format(Locale.getDefault(),
-                                getString(R.string.loading),
-                                circle.getCenter().latitude,
-                                circle.getCenter().longitude);
-
                         // Create an invisible mMarker with 0x0, needed to display information window at circle.
                         mMarker = map.addMarker(new MarkerOptions()
                                 .alpha(0)
@@ -339,6 +307,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void createMockGeofences() {
+
         // Add a mMarker to DkIT and move the camera
         LatLng dkit = new LatLng(53.984981, -6.393973);
         LatLng crownPlaza = new LatLng(53.980856, -6.38913);
@@ -361,49 +330,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         // Group a list of geofences to be monitored and customize how each geofence notifications should be reported
         // In our case, they will all have the same initial trigger which occurs on entering the geofence.
-        List<Geofence> geofenceList = new LinkedList<>();
-        geofenceList.add(geofence1);
-        geofenceList.add(geofence2);
-        geofenceList.add(geofence3);
+        mGeofenceList = new LinkedList<>();
+        mGeofenceList.add(geofence1);
+        mGeofenceList.add(geofence2);
+        mGeofenceList.add(geofence3);
 
-        // Building a geofence request to be sent to the geofence client to begin monitoring.
-        // Monitoring will begin when the device enters the geofence
-        GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
-                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-                .addGeofences(geofenceList)
-                .build();
-
-        if (ContextCompat.checkSelfPermission(this,
-                ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-
-            // Sends a pending intent with a list of Geofence transitions to the GeofenceTransitionService when any occur.
-            mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent())
-                    // If error
-                    .addOnSuccessListener(this, new OnSuccessListener<Void>() {
-                        @Override
-                        public void onSuccess(Void aVoid) {
-                            Log.d(TAG, "Geofences Added");
-                        }
-                    })
-                    .addOnFailureListener(this, new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            // This error usually occurs when location access is turned off.
-                            // This error can also occur on an emulator when all location services (GPS / WiFi / Network) are turned on (my experience).
-                            // If running on an emulator, turn off all location services and turn back on again to prevent this emulator issue.
-                            if (e.getMessage().contains("1000")) {
-                                Log.w(TAG, "GEOFENCE_NOT_AVAILABLE error on adding geofences");
-                            }
-                            else {
-                                Log.d(TAG, "Geofence adding failed: " + e.getStackTrace().toString());
-                            }
-                        }
-                    });
-        }
-        else {
-            Log.d(TAG, "Geofences not added, no permission");
-        }
+        registerGeofences();
     }
 
     private void enableLocationTracking() {
@@ -423,8 +355,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     (MapUtility.createLocationRequest(), mLocationCallback,
                             null /* Looper */);
 
-            // Creating mock sites
-            createMockGeofences();
+            // Check if network location is enabled
+            if (isNetworkLocationActivated()) {
+                    createMockGeofences();
+            } else {
+            // If null, first time dialog has been called
+            Log.d(TAG, "Location not enabled, showing dialog");
+            if (mGPSRequiredDialog == null) {
+                mGPSRequiredDialog = gpsRequiredDialog(this);
+            }
+            mGPSRequiredDialog.show();
+
+        }
         }
         // If not then prompt user for permission
         else {
@@ -470,12 +412,74 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         return mGeofencePendingIntent;
     }
 
-    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+    private void initFirebase() {
+        mFirestore = FirebaseFirestore.getInstance();
+    }
+
+    private ImageView.OnClickListener nearbyPlacesListener = new ImageView.OnClickListener() {
+
+        @Override
+        public void onClick(View v) {
+            Intent nearbyPlacesIntent = new Intent(getApplicationContext(), NearbyPlacesActivity.class);
+            startActivity(nearbyPlacesIntent);
+        }
+    };
+
+    private ImageView.OnClickListener chatListener = new ImageView.OnClickListener() {
+
+        @Override
+        public void onClick(View v) {
+            Intent chatIntent = new Intent(getApplicationContext(), ChatActivity.class);
+            startActivity(chatIntent);
+        }
+    };
+
+    private View.OnClickListener clockInOutListener = new View.OnClickListener() {
+
+        public void onClick(View view) {
+
+            // Get records collection
+            CollectionReference records = mFirestore.collection("records");
+
+            // If clocked out, then clock in
+            if (!mIsClockedIn) {
+                // Add record of clock in
+                records.add(new Record(Record.CLOCK_IN, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
+                MapUtility.setGeofenceGreen(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
+
+                // Set clock out style
+                mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockOutColor));
+                mClockInOutButton.setText(R.string.clock_out);
+            }
+            // If clocked in, then clock out.
+            else {
+                // Add record of clock out
+                records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
+                MapUtility.setGeofenceDefault(mDrawnGeofences.get(mCurrentGeofence.getRequestId()));
+
+                // If user clocked out while not in the geofence, hide button.
+                if (!mInGeofence) {
+                    mClockInOutButton.setVisibility(View.INVISIBLE);
+                }
+
+                // Set clock in style
+                mClockInOutButton.setBackgroundColor(getResources().getColor(R.color.clockInColor));
+                mClockInOutButton.setText(R.string.clock_in);
+
+            }
+
+            // Change boolean value
+            mIsClockedIn = !mIsClockedIn;
+        }
+    };
+
+    class LocationBroadcastReceiver extends BroadcastReceiver {
+
         @Override
         public void onReceive(Context context, Intent intent) {
             // Check broadcast is from GeofenceTransitionService
-            if (intent.getAction() == GEOFENCE_TRANSITION_EVENT_BROADCAST) {
-                Log.d(TAG, "Received broadcast from " + GEOFENCE_TRANSITION_EVENT_BROADCAST);
+            if (intent.getAction() == GEOFENCE_TRANSITION_BROADCAST) {
+                Log.d(TAG, "Received broadcast from " + GEOFENCE_TRANSITION_BROADCAST);
 
                 // Get Geofence and Geofence event information
                 Bundle bundle = intent.getBundleExtra("Geofence");
@@ -495,7 +499,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     // If clocked in and re-entering the geofence, save "ENTERED" geofence record.
                     // This will indicate a user is clocked in and has re-entered the site after leaving it.
-                    if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
                         // Save record
                         CollectionReference records = mFirestore.collection("records");
                         records.add(new Record(null, Record.GEOFENCE_ENTER, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
@@ -503,8 +507,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Update geofence to green
                         MapUtility.setGeofenceGreen(drawnGeofence);
 
-                        sendMessage("Re-entered the site", "You left the site and are now back");
-
+                        mNotificationService.sendNotification("Re-entered the site", "You left the site and are now back");
                     }
                     else {
 
@@ -523,7 +526,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     // If clocked in and leaving the geofence, save "EXITED" geofence record.
                     // This will indicate a user is clocked in and has re-entered the site after leaving it.
-                    if (mIsClockedIn == true && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
+                    if (mIsClockedIn && geofence.getRequestId().equals(mCurrentGeofence.getRequestId())) {
                         // Save record
                         CollectionReference records = mFirestore.collection("records");
                         records.add(new Record(null, Record.GEOFENCE_EXIT, geofence.getRequestId(), drawnGeofence.getCenter(), mAuth.getCurrentUser().getEmail()));
@@ -531,7 +534,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Update geofence to green
                         MapUtility.setGeofenceRed(drawnGeofence);
 
-                        sendMessage("Leaving site while clocked in", "WARNING: you are now outside of the site while clocked in.");
+                        mNotificationService.sendNotification("Leaving site while clocked in", "WARNING: you are now outside of the site while clocked in.");
                     }
                     else {
                         // No longer required to be in a geofence, remove geofence
@@ -541,78 +544,133 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     mInGeofence = false;
                 }
+            } else if (intent.getAction() == LocationManager.MODE_CHANGED_ACTION) {
+                Log.d(TAG, "Received broadcast from " + LocationManager.MODE_CHANGED_ACTION);
+
+                // If network location activated, dismiss dialog
+                if (isNetworkLocationActivated()) {
+                    Log.d(TAG, "Location now enabled, dismissing dialog");
+                    mGPSRequiredDialog.dismiss();
+                    registerGeofences();
+                } else {
+                    // If null, first time dialog has been called
+                    Log.d(TAG, "Location not enabled, showing dialog");
+                    if (mGPSRequiredDialog == null) {
+                        mGPSRequiredDialog = gpsRequiredDialog(context);
+                    }
+                    mGPSRequiredDialog.show();
+                }
             }
+        }
+    }
+
+    public AlertDialog gpsRequiredDialog(final Context activity) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        // Get the layout inflater
+        LayoutInflater inflater = this.getLayoutInflater();
+
+        // Inflate and set the layout for the dialog
+        // Pass null as the parent view because its going in the dialog layout
+        builder.setView(inflater.inflate(R.layout.gps_required, null));
+        builder.setPositiveButton("Turn on location...", null);
+
+        builder.setCancelable(false);
+
+        final AlertDialog alertDialog = builder.create();
+        alertDialog.setOnShowListener(new DialogInterface.OnShowListener() {
+
+            @Override
+            public void onShow(DialogInterface dialog) {
+
+                Button b = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+
+                b.setOnClickListener(new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View view) {
+                        activity.startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                    }
+                });
+            }
+        });
+
+        return alertDialog;
+    }
+
+    private boolean isNetworkLocationActivated() {
+        LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+        return locationManager.isLocationEnabled();
+    }
+
+    private void registerGeofences() {
+        // Building a geofence request to be sent to the geofence client to begin monitoring.
+        // Monitoring will begin when the device enters the geofence
+        GeofencingRequest geofenceRequest = new GeofencingRequest.Builder()
+                .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                .addGeofences(mGeofenceList)
+                .build();
+
+        if (ContextCompat.checkSelfPermission(this,
+                ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+
+            // Sends a pending intent with a list of Geofence transitions to the GeofenceTransitionService when any occur.
+            mGeofencingClient.addGeofences(geofenceRequest, getGeofencePendingIntent())
+                    // If error
+                    .addOnSuccessListener(this, new OnSuccessListener<Void>() {
+                        @Override
+                        public void onSuccess(Void aVoid) {
+                            Log.d(TAG, "Geofences Added");
+                        }
+                    })
+                    .addOnFailureListener(this, new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+                            // This error usually occurs when location access is turned off.
+                            // This error can also occur on an emulator when all location services (GPS / WiFi / Network) are turned on (my experience).
+                            // If running on an emulator, turn off all location services and turn back on again to prevent this emulator issue.
+                            if (e.getMessage().contains("1000")) {
+                                Log.w(TAG, "GEOFENCE_NOT_AVAILABLE error on adding geofences");
+                            }
+                            else {
+                                Log.d(TAG, "Geofence adding failed: " + Arrays.toString(e.getStackTrace()));
+                            }
+                        }
+                    });
+        }
+        else {
+            Log.d(TAG, "Geofences not added, no permission");
+        }
+    }
+
+    private ServiceConnection notificationConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            NotificationBinder binder = (NotificationBinder) service;
+            mNotificationService = binder.getService();
+            isNSBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            isNSBound = false;
         }
     };
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (mIsClockedIn == true) {
+        if (isNSBound) {
+            unbindService(notificationConnection);
+            isNSBound = false;
+        }
+        if (mIsClockedIn) {
             // Save record
             CollectionReference records = mFirestore.collection("records");
-            records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, "USERID123"));
+            records.add(new Record(Record.CLOCK_OUT, null, mCurrentGeofence.getRequestId(), mLastLocationUpdate, mAuth.getCurrentUser().getEmail()));
         }
-
         Intent intent = new Intent(this, GeofenceTransitionService.class);
         stopService(intent);
     }
-
-    private void initFirebase() {
-        mFirestore = FirebaseFirestore.getInstance();
-    }
-
-    private void sendMessage(String title, String message) {
-        Intent intent = new Intent(this, NotificationService.class);
-        intent.putExtra("title", title);
-        intent.putExtra("message", message);
-        startService(intent);
-    }
-
-    private void findCurrentPlace() {
-
-        // Use fields to define the data types to return.
-        List<Place.Field> placeFields = Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.PHOTO_METADATAS);
-
-// Use the builder to create a FindCurrentPlaceRequest.
-        FindCurrentPlaceRequest request =
-                FindCurrentPlaceRequest.builder(placeFields).build();
-
-// Call findCurrentPlace and handle the response (first check that the user has granted permission).
-        if (ContextCompat.checkSelfPermission(this, ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            Task<FindCurrentPlaceResponse> placeResponse = mPlacesClient.findCurrentPlace(request);
-            placeResponse.addOnCompleteListener(new OnCompleteListener<FindCurrentPlaceResponse>() {
-                @Override
-                public void onComplete(@NonNull Task<FindCurrentPlaceResponse> task) {
-                    if (task.isSuccessful()) {
-                        FindCurrentPlaceResponse response = task.getResult();
-                        for (PlaceLikelihood placeLikelihood : response.getPlaceLikelihoods()) {
-                            Log.i(TAG, String.format("Place '%s' has likelihood: %f",
-                                    placeLikelihood.getPlace().getName(),
-                                    placeLikelihood.getLikelihood()));
-                        }
-                    } else {
-                        Exception exception = task.getException();
-                        if (exception instanceof ApiException) {
-                            ApiException apiException = (ApiException) exception;
-                            Log.e(TAG, "Place not found: " + apiException.getStatusCode());
-                        }
-                    }
-                }
-            });
-        } else {
-            enableLocationTracking();
-        }
-
-    }
-
-    private ImageView.OnClickListener nearbyPlacesListener = new ImageView.OnClickListener() {
-
-
-        @Override
-        public void onClick(View v) {
-            Intent nearbyPlacesIntent = new Intent(getApplicationContext(), NearbyPlacesActivity.class);
-            startActivity(nearbyPlacesIntent);
-        }
-    };
 }

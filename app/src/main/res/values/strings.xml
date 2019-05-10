@@ -14,4 +14,9 @@
     <string name="invalid_lat_long_used">Invalid coordinates used</string>
     <string name="sign_out_button">Sign Out</string>
     <string name="title_activity_nearby_places">Nearby Places</string>
+    <string name="gps_required_text">GPS location needs to be turned on\nto run this application.</string>
+    <string name="remote_service_started">SERVICE_STARTED</string>
+    <string name="remote_service_stopped">Service Stopped</string>
+    <string name="remote_service_disconnected">service disconnected</string>
+    <string name="remote_service_connected">Remote service connected</string>
 </resources>
